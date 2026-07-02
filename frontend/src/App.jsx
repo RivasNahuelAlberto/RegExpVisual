@@ -100,8 +100,8 @@ export default function App() {
         <label>
           Algorithm
           <select value={algorithm} onChange={(e) => setAlgorithm(e.target.value)}>
-            <option value="backtracking">Backtracking</option>
-            <option value="memo">Memoization</option>
+            <option value="backtracking">Backtracking w/o Memoization</option>
+            <option value="memo">Backtracking w/ Memoization</option>
             <option value="bottomup">Bottom-Up</option>
           </select>
         </label>

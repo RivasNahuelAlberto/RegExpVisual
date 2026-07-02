@@ -23,13 +23,6 @@ export default function ComparisonView({ traces }) {
     });
   }
 
-  if (memo && bottomup) {
-    summary.push({
-      label: 'Bottom-up vs memo',
-      value: `${bottomup.metrics.calls - memo.metrics.calls} calls difference`,
-    });
-  }
-
   return (
     <div className="comparison-view">
       <h3>Comparison</h3>
