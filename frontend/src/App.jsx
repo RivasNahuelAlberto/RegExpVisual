@@ -195,8 +195,6 @@ export default function App() {
             </div>
           </div>
 
-          <h3>Raw trace</h3>
-          <pre>{JSON.stringify(result, null, 2)}</pre>
         </section>
       ) : null}
     </div>

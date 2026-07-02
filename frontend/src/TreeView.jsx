@@ -149,6 +149,14 @@ export default function TreeView({ events, callTree, activeStateKey }) {
           Open graph
         </button>
       </div>
+      <div className="tree-legend">
+        <div className="legend-item">
+          <span className="legend-swatch memo-hit" /> Memo hit
+        </div>
+        <div className="legend-item">
+          <span className="legend-swatch critical-path" /> Critical path
+        </div>
+      </div>
       <p className="step-indicator">{calls.length} recursive calls</p>
       <div className="tree-list-shell">
         <ul className="tree-root">
@@ -167,7 +175,17 @@ export default function TreeView({ events, callTree, activeStateKey }) {
         <div className="tree-modal-backdrop" onClick={() => setShowGraph(false)}>
           <div className="tree-modal" onClick={(event) => event.stopPropagation()}>
             <div className="toolbar-row">
-              <h3>Call graph</h3>
+              <div>
+                <h3>Call graph</h3>
+                <div className="tree-legend tree-legend-modal">
+                  <div className="legend-item">
+                    <span className="legend-swatch memo-hit" /> Memo hit
+                  </div>
+                  <div className="legend-item">
+                    <span className="legend-swatch critical-path" /> Critical path
+                  </div>
+                </div>
+              </div>
               <button type="button" onClick={() => setShowGraph(false)}>Close</button>
             </div>
             <div className="tree-graph-shell">

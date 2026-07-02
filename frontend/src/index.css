@@ -149,6 +149,29 @@ pre {
 .tree-open-button {
   padding: 0.45rem 0.7rem;
 }
+.tree-legend {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+.tree-legend-modal {
+  margin-top: 0.35rem;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #e2e8f0;
+  font-size: 0.9rem;
+}
+.legend-swatch {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 4px;
+  display: inline-block;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+}
 .tree-modal-backdrop {
   position: fixed;
   inset: 0;
