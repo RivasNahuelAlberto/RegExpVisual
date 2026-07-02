@@ -1,0 +1,146 @@
+:root {
+  color-scheme: light dark;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f172a, #111827);
+}
+
+* { box-sizing: border-box; }
+
+.app-shell {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.panel {
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 16px;
+  padding: 1.25rem;
+  margin-top: 1rem;
+}
+
+label { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.75rem; }
+input, select, button {
+  padding: 0.7rem 0.8rem;
+  border-radius: 10px;
+  border: 1px solid #334155;
+  background: #020617;
+  color: white;
+}
+button { cursor: pointer; }
+pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #020617;
+  padding: 1rem;
+  border-radius: 10px;
+}
+.error { color: #fda4af; margin-top: 1rem; }
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.timeline-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.timeline-list li {
+  display: grid;
+  grid-template-columns: auto auto auto 1fr;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  background: rgba(2, 6, 23, 0.75);
+}
+.event-badge {
+  background: #2563eb;
+  color: white;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+}
+.content-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1rem;
+}
+.side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.tree-view, .inspector-card {
+  padding: 0.9rem;
+  border-radius: 12px;
+  background: rgba(2, 6, 23, 0.75);
+}
+.timeline-list li.selected {
+  outline: 1px solid #60a5fa;
+}
+.toolbar-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+.toolbar-controls {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.step-indicator {
+  color: #cbd5e1;
+  margin-bottom: 0.7rem;
+}
+.comparison-view {
+  margin-bottom: 1rem;
+}
+.comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+.comparison-card {
+  background: rgba(2, 6, 23, 0.75);
+  border-radius: 12px;
+  padding: 0.9rem;
+}
+.dp-table-wrapper {
+  padding: 0.9rem;
+  border-radius: 12px;
+  background: rgba(2, 6, 23, 0.75);
+}
+.dp-table {
+  display: grid;
+  gap: 0.3rem;
+  align-items: center;
+}
+.dp-header, .dp-cell {
+  padding: 0.35rem;
+  text-align: center;
+  border-radius: 6px;
+  background: #1e293b;
+  min-width: 44px;
+}
+.dp-header {
+  font-weight: 700;
+  background: #334155;
+}
+.dp-cell.true { background: #16a34a; }
+.dp-cell.false { background: #64748b; }
