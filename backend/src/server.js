@@ -10,6 +10,10 @@ app.use(cors({ origin: corsOrigin }));
 app.options('*', cors({ origin: corsOrigin }));
 app.use(express.json());
 
+app.get('/api/health', (_req, res) => {
+  res.json({ status: 'ok', uptime: process.uptime() });
+});
+
 app.get('/api/version', (_req, res) => {
   res.json({ version: '1.0.0' });
 });

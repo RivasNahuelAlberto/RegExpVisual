@@ -2,14 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import ComparisonView from './ComparisonView';
 import DpTable from './DpTable';
 import TreeView from './TreeView';
-
-const rawApiUrl = import.meta.env.VITE_API_URL;
-const API_BASE = rawApiUrl ? rawApiUrl.replace(/\/+$/u, '') : '';
-const API_URL = API_BASE || '';
-
-function buildApiPath(path) {
-  return `${API_URL}${path}`;
-}
+import { postJson } from './apiClient';
 
 export default function App() {
   const [s, setS] = useState('aa');
@@ -62,38 +55,16 @@ export default function App() {
     setError('');
 
     try {
-      const response = await fetch(buildApiPath('/api/run'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ s, p, algorithm }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Unable to reach backend');
-      }
-
-      const data = await response.json();
+      const data = await postJson('/api/run', { s, p, algorithm });
       setResult(data);
       setSelectedEvent(data.events?.[0] ?? null);
       setCurrentStep(Math.min(10, data.events?.length || 0));
       setIsPlaying(false);
 
       const traces = await Promise.all([
-        fetch(buildApiPath('/api/run'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ s, p, algorithm: 'backtracking' }),
-        }).then((response) => response.json()),
-        fetch(buildApiPath('/api/run'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ s, p, algorithm: 'memo' }),
-        }).then((response) => response.json()),
-        fetch(buildApiPath('/api/run'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ s, p, algorithm: 'bottomup' }),
-        }).then((response) => response.json()),
+        postJson('/api/run', { s, p, algorithm: 'backtracking' }),
+        postJson('/api/run', { s, p, algorithm: 'memo' }),
+        postJson('/api/run', { s, p, algorithm: 'bottomup' }),
       ]);
 
       setComparison(traces);
