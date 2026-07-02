@@ -77,9 +77,15 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <header>
-        <h1>Regex Matching Visualizer</h1>
-        <p>Send a string, a pattern and an algorithm to inspect the execution trace.</p>
+      <header className="app-header">
+        <div>
+          <h1>Regex Matching Visualizer</h1>
+          <p>Send a string, a pattern and an algorithm to inspect the execution trace.</p>
+        </div>
+        <div className="header-branding">
+          <span className="brand-name">Alpha</span>
+          <img src="/images/logos.png" alt="Alpha logo" />
+        </div>
       </header>
 
       <form onSubmit={handleSubmit} className="panel">

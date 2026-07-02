@@ -22,6 +22,51 @@ body {
   position: relative;
 }
 
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: clamp(1.8rem, 2.5vw, 2.5rem);
+}
+
+.app-header p {
+  margin: 0.5rem 0 0;
+  color: #cbd5e1;
+  max-width: 42rem;
+}
+
+.header-branding {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.88);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
+}
+
+.brand-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #bfdbfe;
+}
+
+.header-branding img {
+  width: 42px;
+  height: auto;
+  display: block;
+  border-radius: 12px;
+}
+
 .bootstrap-shell {
   min-height: 100vh;
   display: grid;
