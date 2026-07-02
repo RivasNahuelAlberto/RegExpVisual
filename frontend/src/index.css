@@ -58,6 +58,7 @@ body {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: #bfdbfe;
+  justify-content: center;
 }
 
 .header-branding img {
