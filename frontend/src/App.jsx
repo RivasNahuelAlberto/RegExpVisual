@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import ComparisonView from './ComparisonView';
 import DpTable from './DpTable';
 import TreeView from './TreeView';
@@ -135,7 +137,11 @@ export default function App() {
         <>
           <section className="panel pseudocode-panel">
             <h2>Algorithm reference</h2>
-            <pre>{pseudocodeByAlgorithm[result.algorithm] ?? ''}</pre>
+            <div className="markdown-body">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {pseudocodeByAlgorithm[result.algorithm] ?? ''}
+              </ReactMarkdown>
+            </div>
           </section>
           <section className="panel results">
             <h2>Trace result</h2>

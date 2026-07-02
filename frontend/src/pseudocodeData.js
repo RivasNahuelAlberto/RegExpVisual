@@ -1,6 +1,6 @@
 const pseudocodeByAlgorithm = {
   memo: [
-    '# 1. Backtracking with Memoization (Top-Down Dynamic Programming) [memo]',
+    '# Backtracking with Memoization (Top-Down Dynamic Programming)',
     '',
     '## High-Level Idea',
     '',
@@ -206,7 +206,7 @@ const pseudocodeByAlgorithm = {
     '* n is the length of the pattern.',
   ].join('\n'),
   backtracking: [
-    '# 2. Backtracking without Memoization [backtracking]',
+    '# Backtracking without Memoization',
     '',
     '## High-Level Idea',
     '',
@@ -378,7 +378,7 @@ const pseudocodeByAlgorithm = {
     '* n is the length of the pattern.',
   ].join('\n'),
   bottomup: [
-    '# 3. Bottom-Up Dynamic Programming [bottomup]',
+    '# 3. Bottom-Up Dynamic Programming',
     '',
     '## High-Level Idea',
     '',
