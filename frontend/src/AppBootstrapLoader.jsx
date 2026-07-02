@@ -41,7 +41,7 @@ export default function AppBootstrapLoader({ children }) {
     return (
       <div className="bootstrap-shell">
         <div className="bootstrap-card">
-          <div className="bootstrap-logo">Alpha</div>
+          <div className="bootstrap-logo"></div>
           <div className="bootstrap-copy">
             <h1>Alpha</h1>
             <p>Estableciendo conexión con el backend...</p>
