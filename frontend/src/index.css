@@ -61,15 +61,22 @@ body {
   justify-content: center;
 }
 
-.header-branding img,
-.header-logo {
+.header-branding img {
   width: 42px;
   height: auto;
   display: block;
   border-radius: 12px;
+}
+
+.header-logo {
+  width: auto;
+  max-height: 4rem;
+  display: block;
+  border-radius: 14px;
   background: rgba(148, 163, 184, 0.14);
   border: 1px solid rgba(148, 163, 184, 0.18);
-  padding: 0.35rem;
+  padding: 0.4rem;
+  object-fit: contain;
 }
 
 .bootstrap-shell {
