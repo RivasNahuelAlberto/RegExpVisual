@@ -115,10 +115,12 @@ export default function TreeView({ events, callTree, activeStateKey }) {
       const nodes = (layouted.children ?? []).map((child) => {
         const nodeMeta = nodeById.get(child.id);
         const isActive = activeStateKey === child.id;
+        const label = nodeMeta?.data?.label ?? child.id;
         return {
           id: child.id,
           position: { x: child.x ?? 0, y: child.y ?? 0 },
-          data: { label: nodeMeta?.data?.label ?? child.id },
+          data: { label },
+          title: label,
           style: {
             background: nodeMeta?.critical ? '#065f46' : nodeMeta?.memoHit ? '#f97316' : '#1e293b',
             color: 'white',
@@ -183,6 +185,9 @@ export default function TreeView({ events, callTree, activeStateKey }) {
                   </div>
                   <div className="legend-item">
                     <span className="legend-swatch critical-path" /> Critical path
+                  </div>
+                  <div className="legend-item" style={{ fontStyle: 'italic', opacity: 0.85 }}>
+                    Hover on a node to see its state label
                   </div>
                 </div>
               </div>

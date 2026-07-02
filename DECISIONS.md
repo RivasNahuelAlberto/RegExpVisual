@@ -158,7 +158,25 @@ Tipado fuerte.
 Separación clara de responsabilidades.
 
 ---
+## DEC-013
 
+## Backend Express por simplicidad operativa
+
+Estado
+
+Aceptada
+
+Motivación
+
+El repositorio actual ya implementa un backend basado en Express y la prioridad inmediata es estabilizar las visualizaciones y el despliegue en Render.
+
+Consecuencias
+
+- El backend mantiene una implementación ligera y fácil de mantener.
+- La migración a NestJS se deja como una mejora futura documentada.
+- El resto de la aplicación sigue desacoplada de la UI y ofrece la misma API REST esperada.
+
+---
 # DEC-009
 
 ## Render para despliegue
