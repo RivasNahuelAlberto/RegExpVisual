@@ -18,6 +18,16 @@ Leer los siguientes documentos en este orden.
 
 ---
 
+# Flujo de trabajo obligatorio
+
+1. Leer `PROJECT_INDEX.md` para ubicar rápidamente los módulos involucrados.
+2. Leer únicamente la documentación necesaria para la tarea.
+3. Implementar respetando la arquitectura y `ExecutionTrace`.
+4. Si se crea, elimina o cambia la responsabilidad de un directorio, actualizar únicamente `PROJECT_INDEX.md`.
+5. No modificar documentación que no haya sido impactada por la tarea.
+
+---
+
 ## 1. PROJECT_OVERVIEW.md
 
 Explica:

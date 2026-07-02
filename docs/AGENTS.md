@@ -110,3 +110,13 @@ Una tarea se considera finalizada únicamente si:
 Construir una plataforma reutilizable para el estudio de algoritmos.
 
 La prioridad es la claridad pedagógica antes que la optimización.
+
+---
+
+# Optimización de contexto
+
+- Minimizar el consumo de tokens.
+- Evitar recorrer el proyecto completo.
+- Consultar `PROJECT_INDEX.md` antes de inspeccionar el código.
+- Leer únicamente los módulos necesarios para la tarea.
+- Evitar releer documentación ya conocida si no fue modificada.

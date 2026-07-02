@@ -1,5 +1,13 @@
 # PROJECT_INDEX.md
 
+> Este documento es el índice oficial del proyecto.
+>
+> Antes de explorar el código, consultar este archivo para localizar únicamente los módulos relacionados con la tarea actual.
+>
+> Mantener este documento actualizado cuando cambie la estructura o las responsabilidades de un directorio.
+
+---
+
 # Índice del proyecto
 
 Este documento sirve como mapa rápido del repositorio.
@@ -196,3 +204,19 @@ Versión:
 Fecha:
 
 Resumen:
+
+---
+
+# Estado del proyecto
+
+| Módulo | Estado |
+|---------|--------|
+| Backend | 🚧 |
+| Frontend | 🚧 |
+| Algoritmos | 🚧 |
+| Visualizadores | ⏳ |
+| Debugger | ⏳ |
+| Comparación | ⏳ |
+| Documentación | ✅ |
+
+Actualizar esta tabla únicamente cuando cambie el estado general de un módulo.

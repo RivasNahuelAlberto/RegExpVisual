@@ -154,3 +154,19 @@ Las implementaciones de referencia NO deben modificarse.
 La documentación debe crecer lentamente.
 
 No generar nuevos documentos cuando una actualización de uno existente sea suficiente.
+
+---
+
+# Mantenimiento de documentación
+
+Actualizar documentación únicamente cuando sea necesario.
+
+Reglas:
+
+- Si cambia la estructura del proyecto → actualizar `PROJECT_INDEX.md`.
+- Si cambia la arquitectura → actualizar `ARCHITECTURE.md`.
+- Si cambia la UI esperada → actualizar `UI_SPEC.md`.
+- Si aparece un nuevo evento → actualizar `EVENT_MAPPING.md` y `TRACE_SPEC.md`.
+- En cualquier otro caso, evitar modificar documentación.
+
+`PROJECT_INDEX.md` es el documento de referencia para localizar rápidamente el código del proyecto y debe mantenerse actualizado.
