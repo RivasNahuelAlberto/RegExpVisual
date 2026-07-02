@@ -18,8 +18,14 @@ export default function DpTable({ dp, dependencies, order, selectedCell, onSelec
   const rows = dp.length;
 
   const getLabel = (index, text) => {
-    if (index === 0) return '""';
-    return text?.[index - 1] ?? '';
+    const length = text?.length ?? 0;
+    if (index < length) {
+      return text?.[index] ?? '';
+    }
+    if (index === length) {
+      return '""';
+    }
+    return '';
   };
 
   return (
