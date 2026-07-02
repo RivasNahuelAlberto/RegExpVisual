@@ -41,6 +41,7 @@ export default function TreeView({ events, callTree, activeStateKey }) {
   const [expandedNodes, setExpandedNodes] = useState(() => new Set(['0,0']));
   const [showGraph, setShowGraph] = useState(false);
   const [hoveredNode, setHoveredNode] = useState(null);
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
   const calls = useMemo(() => events.filter((event) => event.type === 'CALL'), [events]);
 
@@ -145,6 +146,11 @@ export default function TreeView({ events, callTree, activeStateKey }) {
     const path = findPath(callTree ?? [], hoveredNode.id) ?? [];
     return { node, children, path };
   }, [hoveredNode, rawGraph, callTree]);
+
+  const getTooltipStyle = () => ({
+    left: `${tooltipPos.x + 16}px`,
+    top: `${tooltipPos.y + 16}px`,
+  });
 
   useEffect(() => {
     if (!rawGraph.nodes.length) {
@@ -293,26 +299,30 @@ export default function TreeView({ events, callTree, activeStateKey }) {
                 nodes={graphLayout.nodes}
                 edges={graphLayout.edges}
                 fitView
-                onNodeMouseEnter={(event, node) => setHoveredNode(node)}
+                onNodeMouseEnter={(event, node) => {
+                  setHoveredNode(node);
+                  setTooltipPos({ x: event.clientX, y: event.clientY });
+                }}
+                onNodeMouseMove={(event) => setTooltipPos({ x: event.clientX, y: event.clientY })}
                 onNodeMouseLeave={() => setHoveredNode(null)}
               >
                 <Background />
                 <Controls />
                 <MiniMap />
               </ReactFlow>
+              {hoverInfo ? (
+                <div className="hover-tooltip" style={getTooltipStyle()}>
+                  <h4>Hovered node</h4>
+                  <p><strong>State:</strong> ({hoverInfo.node.data.state?.i}, {hoverInfo.node.data.state?.j})</p>
+                  <p><strong>Result:</strong> {hoverInfo.node.data.label.split('→').pop().trim()}</p>
+                  <p><strong>Memo hit:</strong> {hoverInfo.node.data.memoHit ? 'yes' : 'no'}</p>
+                  <p><strong>Critical path:</strong> {hoverInfo.node.data.critical ? 'yes' : 'no'}</p>
+                  <p><strong>Branch decision:</strong> {hoverInfo.node.data.branchDecision ? 'yes' : 'no'}</p>
+                  <p><strong>Children:</strong> {hoverInfo.children.length ? hoverInfo.children.map((child) => child.id).join(', ') : 'none'}</p>
+                  <p><strong>Path to root:</strong> {hoverInfo.path.join(' → ') || 'none'}</p>
+                </div>
+              ) : null}
             </div>
-            {hoverInfo ? (
-              <div className="hover-info-card">
-                <h4>Hovered node</h4>
-                <p><strong>State:</strong> ({hoverInfo.node.data.state?.i}, {hoverInfo.node.data.state?.j})</p>
-                <p><strong>Result:</strong> {hoverInfo.node.data.label.split('→').pop().trim()}</p>
-                <p><strong>Memo hit:</strong> {hoverInfo.node.data.memoHit ? 'yes' : 'no'}</p>
-                <p><strong>Critical path:</strong> {hoverInfo.node.data.critical ? 'yes' : 'no'}</p>
-                <p><strong>Branch decision:</strong> {hoverInfo.node.data.branchDecision ? 'yes' : 'no'}</p>
-                <p><strong>Children:</strong> {hoverInfo.children.length ? hoverInfo.children.map((child) => child.id).join(', ') : 'none'}</p>
-                <p><strong>Path to root:</strong> {hoverInfo.path.join(' → ') || 'none'}</p>
-              </div>
-            ) : null}
           </div>
         </div>
       ) : null}
