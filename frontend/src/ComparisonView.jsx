@@ -18,7 +18,7 @@ export default function ComparisonView({ traces }) {
       value: `${memo.metrics.memoHits} memo hits`,
     });
     summary.push({
-      label: 'Step savings (Backtracking vs Bottom-Up)',
+      label: 'Step savings (average vs worst case)',
       value: `${backtracking.metrics.steps - memo.metrics.steps} fewer steps`,
     });
   }
