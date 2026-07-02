@@ -3,14 +3,20 @@ import ReactFlow, { Background, Controls, MiniMap } from 'reactflow';
 import ELK from 'elkjs/lib/elk.bundled.js';
 import 'reactflow/dist/style.css';
 
-function TreeNode({ node, activeKey, expandedNodes, onToggle, depth = 0 }) {
+function TreeNode({ node, activeKey, expandedNodes, onToggle, onSelectState, depth = 0 }) {
   const isExpanded = expandedNodes.has(node.key);
   const isActive = activeKey === node.key;
 
+  const handleSelect = () => {
+    if (node.state && typeof node.state.i === 'number' && typeof node.state.j === 'number') {
+      onSelectState?.(node.state);
+    }
+  };
+
   return (
     <li className={`tree-node ${isActive ? 'active' : ''}`} style={{ marginLeft: `${depth * 0.6}rem` }}>
-      <div className="tree-node-label">
-        <button type="button" className="tree-toggle" onClick={() => onToggle(node.key)}>
+      <div className="tree-node-label" onClick={handleSelect}>
+        <button type="button" className="tree-toggle" onClick={(event) => { event.stopPropagation(); onToggle(node.key); }}>
           {node.children?.length ? (isExpanded ? '▾' : '▸') : '•'}
         </button>
         <span className="event-badge">{node.key}</span>
@@ -28,6 +34,7 @@ function TreeNode({ node, activeKey, expandedNodes, onToggle, depth = 0 }) {
               activeKey={activeKey}
               expandedNodes={expandedNodes}
               onToggle={onToggle}
+              onSelectState={onSelectState}
               depth={depth + 1}
             />
           ))}
@@ -37,7 +44,7 @@ function TreeNode({ node, activeKey, expandedNodes, onToggle, depth = 0 }) {
   );
 }
 
-export default function TreeView({ events, callTree, activeStateKey }) {
+export default function TreeView({ events, callTree, activeStateKey, onSelectState }) {
   const [expandedNodes, setExpandedNodes] = useState(() => new Set(['0,0']));
   const [showGraph, setShowGraph] = useState(false);
   const [hoveredNode, setHoveredNode] = useState(null);
@@ -267,6 +274,7 @@ export default function TreeView({ events, callTree, activeStateKey }) {
               activeKey={activeStateKey}
               expandedNodes={expandedNodes}
               onToggle={toggleNode}
+              onSelectState={onSelectState}
             />
           ))}
         </ul>
@@ -299,6 +307,10 @@ export default function TreeView({ events, callTree, activeStateKey }) {
                 nodes={graphLayout.nodes}
                 edges={graphLayout.edges}
                 fitView
+                onNodeClick={(_event, node) => {
+                  setHoveredNode(node);
+                  onSelectState?.(node.data.state);
+                }}
                 onNodeMouseEnter={(event, node) => {
                   setHoveredNode(node);
                   setTooltipPos({ x: event.clientX, y: event.clientY });

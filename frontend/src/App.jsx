@@ -26,6 +26,20 @@ export default function App() {
     return null;
   }, [selectedEvent]);
 
+  const findEventByState = (state) => {
+    if (!state || typeof state.i !== 'number' || typeof state.j !== 'number') {
+      return null;
+    }
+    return timeline.find((event) => event.state?.i === state.i && event.state?.j === state.j) ?? null;
+  };
+
+  const handleSelectState = (state) => {
+    const match = findEventByState(state);
+    if (!match) return;
+    setSelectedEvent(match);
+    setCurrentStep(Math.min(match.step ?? timeline.length, timeline.length));
+  };
+
   useEffect(() => {
     if (!isPlaying || !timeline.length) {
       return undefined;
@@ -84,8 +98,8 @@ export default function App() {
         </div>
         <div className="header-branding">
           <span className="brand-name">Alpha</span>
-          <img src="/images/logos.png" alt="Alpha logo" />
         </div>
+        <img className="header-logo" src="/images/logos.png" alt="Alpha logo" />
       </header>
 
       <form onSubmit={handleSubmit} className="panel">
@@ -154,7 +168,7 @@ export default function App() {
 
             <div className="side-panel">
               <div className="visualizer-scroll">
-                {result.algorithm === 'bottomup' ? <DpTable dp={result.dp} dependencies={result.dependencies} order={result.order} selectedCell={selectedCell} /> : <TreeView events={timeline} callTree={result.callTree} activeStateKey={selectedCell} />}
+                {result.algorithm === 'bottomup' ? <DpTable dp={result.dp} dependencies={result.dependencies} order={result.order} selectedCell={selectedCell} onSelectState={handleSelectState} s={s} p={p} /> : <TreeView events={timeline} callTree={result.callTree} activeStateKey={selectedCell} onSelectState={handleSelectState} />}
               </div>
               <div className="inspector-card">
                 <h3>Inspector</h3>
@@ -171,7 +185,6 @@ export default function App() {
               </div>
             </div>
           </div>
-
         </section>
       ) : null}
     </div>

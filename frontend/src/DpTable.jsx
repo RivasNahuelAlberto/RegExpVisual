@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default function DpTable({ dp, dependencies, order, selectedCell, onSelectCell }) {
+export default function DpTable({ dp, dependencies, order, selectedCell, onSelectState, s = '', p = '' }) {
   const [internalSelectedCell, setInternalSelectedCell] = useState(null);
 
   if (!dp || !dp.length) {
@@ -9,28 +9,34 @@ export default function DpTable({ dp, dependencies, order, selectedCell, onSelec
 
   const activeCell = selectedCell ?? internalSelectedCell;
 
-  const handleSelectCell = (cellKey) => {
+  const handleSelectCell = (cellKey, rowIndex, colIndex) => {
     setInternalSelectedCell(cellKey);
-    onSelectCell?.(cellKey);
+    onSelectState?.({ i: rowIndex, j: colIndex });
   };
 
   const columns = dp[0].length;
+  const rows = dp.length;
+
+  const getLabel = (index, text) => {
+    if (index === 0) return '""';
+    return text?.[index - 1] ?? '';
+  };
 
   return (
     <div className="dp-table-wrapper">
       <h3>DP table</h3>
-      <div className="dp-table" style={{ gridTemplateColumns: `70px repeat(${columns}, 44px)` }}>
+      <div className="dp-table" style={{ gridTemplateColumns: `70px repeat(${columns}, 56px)` }}>
         <div className="dp-header">i\j</div>
         {Array.from({ length: columns }, (_, colIndex) => (
           <div key={`col-${colIndex}`} className="dp-header">
-            {colIndex}
+            {getLabel(colIndex, p)}
           </div>
         ))}
 
         {dp.map((row, rowIndex) => (
           <>
             <div key={`row-label-${rowIndex}`} className="dp-header">
-              {rowIndex}
+              {getLabel(rowIndex, s)}
             </div>
             {row.map((value, colIndex) => {
               const key = `${rowIndex},${colIndex}`;
@@ -40,7 +46,7 @@ export default function DpTable({ dp, dependencies, order, selectedCell, onSelec
                   key={key}
                   type="button"
                   className={`dp-cell ${value ? 'true' : 'false'} ${isSelected ? 'selected' : ''}`}
-                  onClick={() => handleSelectCell(key)}
+                  onClick={() => handleSelectCell(key, rowIndex, colIndex)}
                 >
                   <span>{value ? 'T' : 'F'}</span>
                   <small>{order?.[key] ?? ''}</small>
