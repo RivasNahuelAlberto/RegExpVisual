@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import ComparisonView from './ComparisonView';
 import DpTable from './DpTable';
 import TreeView from './TreeView';
@@ -14,10 +14,41 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [currentStep, setCurrentStep] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [comparison, setComparison] = useState([]);
 
   const timeline = useMemo(() => result?.events ?? [], [result]);
   const visibleEvents = useMemo(() => timeline.slice(0, currentStep), [timeline, currentStep]);
+  const selectedCell = useMemo(() => {
+    const state = selectedEvent?.state;
+    if (typeof state?.i === 'number' && typeof state?.j === 'number') {
+      return `${state.i},${state.j}`;
+    }
+    return null;
+  }, [selectedEvent]);
+
+  useEffect(() => {
+    if (!isPlaying || !timeline.length) {
+      return undefined;
+    }
+
+    if (currentStep >= timeline.length) {
+      setIsPlaying(false);
+      return undefined;
+    }
+
+    const timerId = window.setInterval(() => {
+      setCurrentStep((value) => {
+        if (value >= timeline.length) {
+          setIsPlaying(false);
+          return value;
+        }
+        return value + 1;
+      });
+    }, 350);
+
+    return () => window.clearInterval(timerId);
+  }, [currentStep, isPlaying, timeline.length]);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -39,6 +70,7 @@ export default function App() {
       setResult(data);
       setSelectedEvent(data.events?.[0] ?? null);
       setCurrentStep(Math.min(10, data.events?.length || 0));
+      setIsPlaying(false);
 
       const traces = await Promise.all([
         fetch(`${API_URL}/api/run`, {
@@ -112,31 +144,35 @@ export default function App() {
           <ComparisonView traces={comparison} />
 
           <div className="content-grid">
-            <div>
+            <div className="timeline-panel">
               <div className="toolbar-row">
                 <h3>Timeline</h3>
                 <div className="toolbar-controls">
                   <button type="button" onClick={() => setCurrentStep((value) => Math.max(1, value - 1))}>Back</button>
                   <button type="button" onClick={() => setCurrentStep((value) => Math.min(timeline.length, value + 1))}>Step</button>
-                  <button type="button" onClick={() => setCurrentStep(timeline.length)}>Play</button>
-                  <button type="button" onClick={() => setCurrentStep(0)}>Restart</button>
+                  <button type="button" onClick={() => setIsPlaying((value) => !value)}>{isPlaying ? 'Pause' : 'Play'}</button>
+                  <button type="button" onClick={() => { setIsPlaying(false); setCurrentStep(0); }}>Restart</button>
                 </div>
               </div>
               <p className="step-indicator">Showing {visibleEvents.length} of {timeline.length} events</p>
-              <ul className="timeline-list">
-                {visibleEvents.map((event) => (
-                  <li key={event.id} onClick={() => setSelectedEvent(event)} className={selectedEvent?.id === event.id ? 'selected' : ''}>
-                    <span className="event-badge">{event.type}</span>
-                    <span>step {event.step}</span>
-                    <span>state ({event.state?.i}, {event.state?.j})</span>
-                    <span>{event.description}</span>
-                  </li>
-                ))}
-              </ul>
+              <div className="timeline-scroll">
+                <ul className="timeline-list">
+                  {visibleEvents.map((event) => (
+                    <li key={event.id} onClick={() => setSelectedEvent(event)} className={selectedEvent?.id === event.id ? 'selected' : ''}>
+                      <span className="event-badge">{event.type}</span>
+                      <span>step {event.step}</span>
+                      <span>state ({event.state?.i}, {event.state?.j})</span>
+                      <span>{event.description}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
 
             <div className="side-panel">
-              {result.algorithm === 'bottomup' ? <DpTable dp={result.dp} /> : <TreeView events={timeline} />}
+              <div className="visualizer-scroll">
+                {result.algorithm === 'bottomup' ? <DpTable dp={result.dp} dependencies={result.dependencies} order={result.order} selectedCell={selectedCell} /> : <TreeView events={timeline} callTree={result.callTree} activeStateKey={selectedCell} />}
+              </div>
               <div className="inspector-card">
                 <h3>Inspector</h3>
                 {selectedEvent ? (

@@ -4,6 +4,7 @@ export function runAlgorithm({ s, p, algorithm = 'memo' }) {
   const events = [];
   const memo = algorithm === 'memo' ? new Map() : null;
   const callTree = [];
+  const nodeStack = [];
   let calls = 0;
   let step = 0;
 
@@ -17,9 +18,21 @@ export function runAlgorithm({ s, p, algorithm = 'memo' }) {
   function isMatch(i, j) {
     calls += 1;
     const key = `${i},${j}`;
+    const node = { id: `${i},${j}`, state: { i, j }, children: [], result: null, key, memoHit: false, critical: false };
+
+    if (nodeStack.length > 0) {
+      nodeStack[nodeStack.length - 1].children.push(node);
+    } else {
+      callTree.push(node);
+    }
+
+    nodeStack.push(node);
 
     if (memo && memo.has(key)) {
       pushEvent('MEMO_HIT', { i, j }, 'memo hit', { variables: { key } });
+      node.memoHit = true;
+      node.result = memo.get(key);
+      nodeStack.pop();
       return memo.get(key);
     }
 
@@ -28,10 +41,12 @@ export function runAlgorithm({ s, p, algorithm = 'memo' }) {
     if (j === p.length) {
       const result = i === s.length;
       pushEvent('RETURN', { i, j }, 'end of pattern', { variables: { result } });
+      node.result = result;
       if (memo) {
         memo.set(key, result);
         pushEvent('MEMO_STORE', { i, j }, 'memo store', { variables: { result } });
       }
+      nodeStack.pop();
       return result;
     }
 
@@ -53,14 +68,34 @@ export function runAlgorithm({ s, p, algorithm = 'memo' }) {
     }
 
     pushEvent('RETURN', { i, j }, 'return', { variables: { result } });
+    node.result = result;
     if (memo) {
       memo.set(key, result);
       pushEvent('MEMO_STORE', { i, j }, 'memo store', { variables: { result } });
     }
+    nodeStack.pop();
     return result;
   }
 
+  function markCriticalPath(node) {
+    if (!node || node.result !== true) {
+      return false;
+    }
+    node.critical = true;
+    for (const child of node.children) {
+      if (markCriticalPath(child)) {
+        return true;
+      }
+    }
+    return node.children.length === 0 || node.result === true;
+  }
+
   const finalAnswer = isMatch(0, 0);
+  callTree.forEach((root) => {
+    if (root.result === true) {
+      markCriticalPath(root);
+    }
+  });
 
   return {
     algorithm,

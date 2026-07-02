@@ -16,3 +16,19 @@ test('backtracking does not emit memo hits', () => {
   assert.equal(trace.metrics.memoHits, 0);
   assert.equal(trace.events.some((event) => event.type === 'MEMO_HIT'), false);
 });
+
+test('builds a concrete call tree for backtracking and memoization', () => {
+  const backtracking = runAlgorithm({ s: 'aa', p: 'a*', algorithm: 'backtracking' });
+  const memoized = runAlgorithm({ s: 'aa', p: 'a*', algorithm: 'memo' });
+
+  assert.ok(Array.isArray(backtracking.callTree));
+  assert.ok(backtracking.callTree.length > 0);
+  assert.ok(Array.isArray(memoized.callTree));
+  assert.ok(memoized.callTree.length > 0);
+
+  const countNodes = (nodes) => nodes.reduce((total, node) => total + 1 + countNodes(node.children ?? []), 0);
+
+  assert.ok(countNodes(backtracking.callTree) > 0);
+  assert.ok(countNodes(memoized.callTree) > 0);
+  assert.ok(countNodes(backtracking.callTree) >= countNodes(memoized.callTree));
+});
