@@ -508,6 +508,20 @@ pre {
   border-radius: 10px;
   background: rgba(2, 6, 23, 0.75);
 }
+.pseudocode-panel {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border-radius: 16px;
+  background: rgba(2, 6, 23, 0.85);
+}
+.pseudocode-panel pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 0.9rem;
+  color: #e2e8f0;
+}
 .inspector-card {
   overflow: auto;
   max-height: 24vh;
