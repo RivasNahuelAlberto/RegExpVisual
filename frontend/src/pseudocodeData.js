@@ -378,7 +378,7 @@ const pseudocodeByAlgorithm = {
     '* n is the length of the pattern.',
   ].join('\n'),
   bottomup: [
-    '# 3. Bottom-Up Dynamic Programming',
+    '# Bottom-Up Dynamic Programming',
     '',
     '## High-Level Idea',
     '',
