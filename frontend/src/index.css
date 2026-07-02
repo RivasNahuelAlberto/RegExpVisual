@@ -246,9 +246,21 @@ pre {
   background: #f97316;
   color: #020617;
 }
+.branch-decision {
+  background: #0ea5e9;
+  color: #020617;
+}
 .critical-path {
   background: #065f46;
   color: #f8fafc;
+}
+.hover-info-card {
+  margin-top: 0.75rem;
+  padding: 0.9rem;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.95);
+  color: #e2e8f0;
+  border: 1px solid rgba(148, 163, 184, 0.2);
 }
 .dp-table-wrapper {
   padding: 0.9rem;

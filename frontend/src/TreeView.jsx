@@ -40,6 +40,7 @@ function TreeNode({ node, activeKey, expandedNodes, onToggle, depth = 0 }) {
 export default function TreeView({ events, callTree, activeStateKey }) {
   const [expandedNodes, setExpandedNodes] = useState(() => new Set(['0,0']));
   const [showGraph, setShowGraph] = useState(false);
+  const [hoveredNode, setHoveredNode] = useState(null);
 
   const calls = useMemo(() => events.filter((event) => event.type === 'CALL'), [events]);
 
@@ -55,6 +56,28 @@ export default function TreeView({ events, callTree, activeStateKey }) {
     });
   };
 
+  const activePath = useMemo(() => {
+    const path = new Set();
+    if (!activeStateKey) return path;
+
+    const findPath = (nodes) => {
+      for (const node of nodes) {
+        if (node.key === activeStateKey) {
+          path.add(node.key);
+          return true;
+        }
+        if (node.children?.length && findPath(node.children)) {
+          path.add(node.key);
+          return true;
+        }
+      }
+      return false;
+    };
+
+    findPath(callTree ?? []);
+    return path;
+  }, [callTree, activeStateKey]);
+
   const elk = useMemo(() => new ELK(), []);
   const [graphLayout, setGraphLayout] = useState({ nodes: [], edges: [] });
 
@@ -63,13 +86,19 @@ export default function TreeView({ events, callTree, activeStateKey }) {
     const edges = [];
 
     const walk = (node, parentKey = null) => {
+      const branchDecision = (node.children?.length ?? 0) > 1;
       nodes.push({
         id: node.key,
         data: {
           label: `${node.key} → ${String(node.result)}${node.memoHit ? ' [memo]' : ''}${node.critical ? ' [critical]' : ''}`,
+          state: node.state,
+          memoHit: node.memoHit,
+          critical: node.critical,
+          branchDecision,
         },
         memoHit: node.memoHit,
         critical: node.critical,
+        branchDecision,
       });
 
       if (parentKey) {
@@ -83,11 +112,49 @@ export default function TreeView({ events, callTree, activeStateKey }) {
     return { nodes, edges };
   }, [callTree]);
 
+  const hoverInfo = useMemo(() => {
+    if (!hoveredNode?.id) {
+      return null;
+    }
+
+    const nodesById = new Map(rawGraph.nodes.map((node) => [node.id, node]));
+    const node = nodesById.get(hoveredNode.id);
+    if (!node) {
+      return null;
+    }
+
+    const children = rawGraph.edges
+      .filter((edge) => edge.source === hoveredNode.id)
+      .map((edge) => nodesById.get(edge.target))
+      .filter(Boolean);
+
+    const findPath = (nodes, targetId, stack = []) => {
+      for (const current of nodes) {
+        const nextStack = [...stack, current.key];
+        if (current.key === targetId) {
+          return nextStack;
+        }
+        const childPath = findPath(current.children ?? [], targetId, nextStack);
+        if (childPath) {
+          return childPath;
+        }
+      }
+      return null;
+    };
+
+    const path = findPath(callTree ?? [], hoveredNode.id) ?? [];
+    return { node, children, path };
+  }, [hoveredNode, rawGraph, callTree]);
+
   useEffect(() => {
     if (!rawGraph.nodes.length) {
       setGraphLayout({ nodes: [], edges: [] });
       return;
     }
+
+    const activeEdges = new Set(rawGraph.edges
+      .filter((edge) => activePath.has(edge.source) && activePath.has(edge.target))
+      .map((edge) => edge.id));
 
     const elkGraph = {
       id: 'root',
@@ -115,16 +182,31 @@ export default function TreeView({ events, callTree, activeStateKey }) {
       const nodes = (layouted.children ?? []).map((child) => {
         const nodeMeta = nodeById.get(child.id);
         const isActive = activeStateKey === child.id;
+        const isPath = activePath.has(child.id);
         const label = nodeMeta?.data?.label ?? child.id;
+        const background = isPath
+          ? '#7c3aed'
+          : nodeMeta?.critical
+            ? '#065f46'
+            : nodeMeta?.memoHit
+              ? '#f97316'
+              : nodeMeta?.branchDecision
+                ? '#0ea5e9'
+                : '#1e293b';
+
         return {
           id: child.id,
           position: { x: child.x ?? 0, y: child.y ?? 0 },
-          data: { label },
+          data: {
+            ...nodeMeta?.data,
+            label,
+          },
           title: label,
           style: {
-            background: nodeMeta?.critical ? '#065f46' : nodeMeta?.memoHit ? '#f97316' : '#1e293b',
+            background,
             color: 'white',
-            border: isActive ? '2px solid #60a5fa' : '1px solid rgba(148, 163, 184, 0.3)',
+            border: isActive ? '3px solid #60a5fa' : '1px solid rgba(148, 163, 184, 0.3)',
+            boxShadow: isPath ? '0 0 0 4px rgba(124, 58, 237, 0.2)' : undefined,
           },
           sourcePosition: 'bottom',
           targetPosition: 'top',
@@ -132,7 +214,17 @@ export default function TreeView({ events, callTree, activeStateKey }) {
           height: child.height,
         };
       });
-      setGraphLayout({ nodes, edges: rawGraph.edges });
+
+      const edges = rawGraph.edges.map((edge) => ({
+        ...edge,
+        style: {
+          stroke: activeEdges.has(edge.id) ? '#a855f7' : '#94a3b8',
+          strokeWidth: activeEdges.has(edge.id) ? 3 : 1,
+          strokeDasharray: rawGraph.nodes.find((node) => node.id === edge.source)?.branchDecision ? '5 5' : undefined,
+        },
+      }));
+
+      setGraphLayout({ nodes, edges });
     }).catch(() => {
       setGraphLayout({ nodes: rawGraph.nodes.map((node) => ({
         ...node,
@@ -141,7 +233,7 @@ export default function TreeView({ events, callTree, activeStateKey }) {
         targetPosition: 'top',
       })), edges: rawGraph.edges });
     });
-  }, [elk, rawGraph, activeStateKey]);
+  }, [elk, rawGraph, activePath, activeStateKey]);
 
   return (
     <div className="tree-view">
@@ -186,20 +278,41 @@ export default function TreeView({ events, callTree, activeStateKey }) {
                   <div className="legend-item">
                     <span className="legend-swatch critical-path" /> Critical path
                   </div>
+                  <div className="legend-item">
+                    <span className="legend-swatch branch-decision" /> Branch decision
+                  </div>
                   <div className="legend-item" style={{ fontStyle: 'italic', opacity: 0.85 }}>
-                    Hover on a node to see its state label
+                    Hover a node to inspect its state
                   </div>
                 </div>
               </div>
               <button type="button" onClick={() => setShowGraph(false)}>Close</button>
             </div>
             <div className="tree-graph-shell">
-              <ReactFlow nodes={graphLayout.nodes} edges={graphLayout.edges} fitView>
+              <ReactFlow
+                nodes={graphLayout.nodes}
+                edges={graphLayout.edges}
+                fitView
+                onNodeMouseEnter={(event, node) => setHoveredNode(node)}
+                onNodeMouseLeave={() => setHoveredNode(null)}
+              >
                 <Background />
                 <Controls />
                 <MiniMap />
               </ReactFlow>
             </div>
+            {hoverInfo ? (
+              <div className="hover-info-card">
+                <h4>Hovered node</h4>
+                <p><strong>State:</strong> ({hoverInfo.node.data.state?.i}, {hoverInfo.node.data.state?.j})</p>
+                <p><strong>Result:</strong> {hoverInfo.node.data.label.split('→').pop().trim()}</p>
+                <p><strong>Memo hit:</strong> {hoverInfo.node.data.memoHit ? 'yes' : 'no'}</p>
+                <p><strong>Critical path:</strong> {hoverInfo.node.data.critical ? 'yes' : 'no'}</p>
+                <p><strong>Branch decision:</strong> {hoverInfo.node.data.branchDecision ? 'yes' : 'no'}</p>
+                <p><strong>Children:</strong> {hoverInfo.children.length ? hoverInfo.children.map((child) => child.id).join(', ') : 'none'}</p>
+                <p><strong>Path to root:</strong> {hoverInfo.path.join(' → ') || 'none'}</p>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
