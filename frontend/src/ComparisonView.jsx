@@ -10,15 +10,15 @@ export default function ComparisonView({ traces }) {
   const summary = [];
   if (backtracking && memo) {
     summary.push({
-      label: 'Call reduction (w/ vs w/o Memoization)',
+      label: 'Call reduction (vs w/o memo)',
       value: `${backtracking.metrics.calls - memo.metrics.calls} fewer calls`,
     });
     summary.push({
-      label: 'Memo hits (w/ Memoization)',
+      label: 'Memo hits',
       value: `${memo.metrics.memoHits} memo hits`,
     });
     summary.push({
-      label: 'Step savings (average vs worst case)',
+      label: 'Step savings (vs w/o memo)',
       value: `${backtracking.metrics.steps - memo.metrics.steps} fewer steps`,
     });
   }
