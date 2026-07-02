@@ -4,8 +4,10 @@ import { runTrace } from './algorithmRunner.js';
 
 const app = express();
 const port = process.env.PORT || 3001;
+const corsOrigin = process.env.CORS_ORIGIN || '*';
 
-app.use(cors());
+app.use(cors({ origin: corsOrigin }));
+app.options('*', cors({ origin: corsOrigin }));
 app.use(express.json());
 
 app.get('/api/version', (_req, res) => {

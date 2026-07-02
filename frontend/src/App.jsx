@@ -3,7 +3,13 @@ import ComparisonView from './ComparisonView';
 import DpTable from './DpTable';
 import TreeView from './TreeView';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const rawApiUrl = import.meta.env.VITE_API_URL;
+const API_BASE = rawApiUrl ? rawApiUrl.replace(/\/+$/u, '') : '';
+const API_URL = API_BASE || '';
+
+function buildApiPath(path) {
+  return `${API_URL}${path}`;
+}
 
 export default function App() {
   const [s, setS] = useState('aa');
@@ -56,7 +62,7 @@ export default function App() {
     setError('');
 
     try {
-      const response = await fetch(`${API_URL}/api/run`, {
+      const response = await fetch(buildApiPath('/api/run'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ s, p, algorithm }),
@@ -73,17 +79,17 @@ export default function App() {
       setIsPlaying(false);
 
       const traces = await Promise.all([
-        fetch(`${API_URL}/api/run`, {
+        fetch(buildApiPath('/api/run'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ s, p, algorithm: 'backtracking' }),
         }).then((response) => response.json()),
-        fetch(`${API_URL}/api/run`, {
+        fetch(buildApiPath('/api/run'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ s, p, algorithm: 'memo' }),
         }).then((response) => response.json()),
-        fetch(`${API_URL}/api/run`, {
+        fetch(buildApiPath('/api/run'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ s, p, algorithm: 'bottomup' }),
