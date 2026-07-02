@@ -99,6 +99,9 @@ export default function App() {
         <div className="header-branding">
           <span className="brand-name">Alpha</span>
         </div>
+        <div className="header-branding">
+          <span className="brand-name">Programación Avanzada 1C2026</span>
+        </div>
         <img className="header-logo" src="/images/logos.png" alt="Alpha logo" />
       </header>
 
