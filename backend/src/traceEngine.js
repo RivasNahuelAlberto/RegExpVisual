@@ -78,23 +78,26 @@ export function runAlgorithm({ s, p, algorithm = 'memo' }) {
   }
 
   function markCriticalPath(node) {
-    if (!node || node.result !== true) {
+    if (!node) {
       return false;
     }
-    node.critical = true;
+
+    let childCritical = false;
     for (const child of node.children) {
       if (markCriticalPath(child)) {
-        return true;
+        childCritical = true;
       }
     }
-    return node.children.length === 0 || node.result === true;
+
+    const isLeafSuccess = node.children.length === 0 && node.result === true;
+    const isCritical = childCritical || isLeafSuccess;
+    node.critical = isCritical;
+    return isCritical;
   }
 
   const finalAnswer = isMatch(0, 0);
   callTree.forEach((root) => {
-    if (root.result === true) {
-      markCriticalPath(root);
-    }
+    markCriticalPath(root);
   });
 
   return {

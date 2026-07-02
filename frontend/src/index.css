@@ -207,6 +207,26 @@ pre {
   border-radius: 12px;
   padding: 0.9rem;
 }
+.highlight-card {
+  background: rgba(30, 64, 175, 0.9);
+  color: white;
+}
+.node-tag {
+  margin-left: 0.6rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.memo-hit {
+  background: #f97316;
+  color: #020617;
+}
+.critical-path {
+  background: #065f46;
+  color: #f8fafc;
+}
 .dp-table-wrapper {
   padding: 0.9rem;
   border-radius: 12px;

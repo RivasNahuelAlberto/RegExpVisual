@@ -3,6 +3,33 @@ export default function ComparisonView({ traces }) {
     return null;
   }
 
+  const backtracking = traces.find((trace) => trace.algorithm === 'backtracking');
+  const memo = traces.find((trace) => trace.algorithm === 'memo');
+  const bottomup = traces.find((trace) => trace.algorithm === 'bottomup');
+
+  const summary = [];
+  if (backtracking && memo) {
+    summary.push({
+      label: 'Call reduction',
+      value: `${backtracking.metrics.calls - memo.metrics.calls} fewer calls`,
+    });
+    summary.push({
+      label: 'Memo hits',
+      value: `${memo.metrics.memoHits} memo hits`,
+    });
+    summary.push({
+      label: 'Step savings',
+      value: `${backtracking.metrics.steps - memo.metrics.steps} fewer steps`,
+    });
+  }
+
+  if (memo && bottomup) {
+    summary.push({
+      label: 'Bottom-up vs memo',
+      value: `${bottomup.metrics.calls - memo.metrics.calls} calls difference`,
+    });
+  }
+
   return (
     <div className="comparison-view">
       <h3>Comparison</h3>
@@ -14,9 +41,23 @@ export default function ComparisonView({ traces }) {
             <p><strong>Calls:</strong> {trace.metrics?.calls}</p>
             <p><strong>Memo hits:</strong> {trace.metrics?.memoHits ?? 0}</p>
             <p><strong>Steps:</strong> {trace.metrics?.steps}</p>
+            <p><strong>State graph:</strong> {trace.stateGraph?.length}</p>
           </div>
         ))}
       </div>
+      {summary.length ? (
+        <div className="comparison-summary">
+          <h4>Memoization impact</h4>
+          <div className="comparison-grid">
+            {summary.map((item) => (
+              <div key={item.label} className="comparison-card highlight-card">
+                <strong>{item.label}</strong>
+                <p>{item.value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -16,6 +16,8 @@ function TreeNode({ node, activeKey, expandedNodes, onToggle, depth = 0 }) {
         <span className="event-badge">{node.key}</span>
         <span>state ({node.state?.i}, {node.state?.j})</span>
         <span className="tree-result">&rarr; {String(node.result)}</span>
+        {node.memoHit ? <span className="node-tag memo-hit">MEMO HIT</span> : null}
+        {!node.memoHit && node.critical ? <span className="node-tag critical-path">CRITICAL</span> : null}
       </div>
       {node.children?.length && isExpanded ? (
         <ul className="tree-children">
@@ -63,7 +65,11 @@ export default function TreeView({ events, callTree, activeStateKey }) {
     const walk = (node, parentKey = null) => {
       nodes.push({
         id: node.key,
-        data: { label: `${node.key} → ${String(node.result)}` },
+        data: {
+          label: `${node.key} → ${String(node.result)}${node.memoHit ? ' [memo]' : ''}${node.critical ? ' [critical]' : ''}`,
+        },
+        memoHit: node.memoHit,
+        critical: node.critical,
       });
 
       if (parentKey) {
@@ -105,20 +111,25 @@ export default function TreeView({ events, callTree, activeStateKey }) {
     };
 
     elk.layout(elkGraph).then((layouted) => {
-      const labelById = new Map(rawGraph.nodes.map((node) => [node.id, node.data.label]));
-      const nodes = (layouted.children ?? []).map((child) => ({
-        id: child.id,
-        position: { x: child.x ?? 0, y: child.y ?? 0 },
-        data: { label: labelById.get(child.id) ?? child.id },
-        style: rawGraph.nodes.find((n) => n.id === child.id) && activeStateKey === child.id
-          ? { background: '#2563eb', color: 'white' }
-          : undefined,
-        sourcePosition: 'bottom',
-        targetPosition: 'top',
-        width: child.width,
-        height: child.height,
-      }));
-
+      const nodeById = new Map(rawGraph.nodes.map((node) => [node.id, node]));
+      const nodes = (layouted.children ?? []).map((child) => {
+        const nodeMeta = nodeById.get(child.id);
+        const isActive = activeStateKey === child.id;
+        return {
+          id: child.id,
+          position: { x: child.x ?? 0, y: child.y ?? 0 },
+          data: { label: nodeMeta?.data?.label ?? child.id },
+          style: {
+            background: nodeMeta?.critical ? '#065f46' : nodeMeta?.memoHit ? '#f97316' : '#1e293b',
+            color: 'white',
+            border: isActive ? '2px solid #60a5fa' : '1px solid rgba(148, 163, 184, 0.3)',
+          },
+          sourcePosition: 'bottom',
+          targetPosition: 'top',
+          width: child.width,
+          height: child.height,
+        };
+      });
       setGraphLayout({ nodes, edges: rawGraph.edges });
     }).catch(() => {
       setGraphLayout({ nodes: rawGraph.nodes.map((node) => ({

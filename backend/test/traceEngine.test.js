@@ -32,3 +32,21 @@ test('builds a concrete call tree for backtracking and memoization', () => {
   assert.ok(countNodes(memoized.callTree) > 0);
   assert.ok(countNodes(backtracking.callTree) >= countNodes(memoized.callTree));
 });
+
+test('memoized call tree nodes include memoHit and critical flags', () => {
+  const memoized = runAlgorithm({ s: 'aaa', p: 'a*a*', algorithm: 'memo' });
+  const visited = [];
+
+  const walk = (nodes) => {
+    nodes.forEach((node) => {
+      visited.push(node);
+      if (node.children?.length) {
+        walk(node.children);
+      }
+    });
+  };
+
+  walk(memoized.callTree);
+  assert.ok(visited.some((node) => node.memoHit === true), 'Expected at least one memo hit node in the call tree');
+  assert.ok(visited.some((node) => node.critical === true), 'Expected at least one critical path node in the call tree');
+});
