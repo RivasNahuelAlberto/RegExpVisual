@@ -173,8 +173,8 @@ export default function TreeView({ events, callTree, activeStateKey }) {
       },
       children: rawGraph.nodes.map((node) => ({
         id: node.id,
-        width: 180,
-        height: 72,
+        width: 260,
+        height: 144,
       })),
       edges: rawGraph.edges.map((edge) => ({
         id: edge.id,
