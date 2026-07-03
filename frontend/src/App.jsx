@@ -5,7 +5,7 @@ import ComparisonView from './ComparisonView';
 import DpTable from './DpTable';
 import TreeView from './TreeView';
 import AnalyticsCharts from './components/charts/AnalyticsCharts';
-import { postJson } from './apiClient';
+import { buildApiPath, postJson } from './apiClient';
 import pseudocodeByAlgorithm from './pseudocodeData';
 
 const getStateCounts = (events) => {
@@ -230,7 +230,7 @@ export default function App() {
     if (useStream) {
       return new Promise((resolve) => {
         const params = new URLSearchParams({ s, p, algorithm });
-        const source = new EventSource(`/api/run-stream?${params.toString()}`);
+        const source = new EventSource(`${buildApiPath('/api/run-stream')}?${params.toString()}`);
         eventSourceRef.current = source;
         const incrementalEvents = [];
         let runningResult = {
