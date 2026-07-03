@@ -477,10 +477,53 @@ button { cursor: pointer; }
   color: #e2e8f0;
   font-variant-numeric: tabular-nums;
 }
+.metric-selector {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
+}
+.metric-selector label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: #e2e8f0;
+}
+.metric-selector select {
+  min-width: 160px;
+  border-radius: 10px;
+}
+.comparison-chart {
+  background: rgba(2, 6, 23, 0.75);
+  border-radius: 14px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+.analytics-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1rem;
+}
+.analytics-chart-card {
+  background: rgba(2, 6, 23, 0.85);
+  border-radius: 18px;
+  padding: 1rem;
+  min-height: 340px;
+}
+.analytics-chart-card h4 {
+  margin: 0 0 1rem;
+  color: #bfdbfe;
+}
+.analytics-chart-shell {
+  height: calc(100% - 2rem);
+  min-height: 240px;
+}
 .comparison-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 0.75rem;
+}
+.comparison-summary {
+  margin-top: 1rem;
 }
 .comparison-card {
   background: rgba(2, 6, 23, 0.75);

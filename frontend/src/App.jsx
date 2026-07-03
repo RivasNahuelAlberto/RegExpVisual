@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import ComparisonView from './ComparisonView';
 import DpTable from './DpTable';
 import TreeView from './TreeView';
+import AnalyticsCharts from './components/charts/AnalyticsCharts';
 import { postJson } from './apiClient';
 import pseudocodeByAlgorithm from './pseudocodeData';
 
@@ -43,15 +44,15 @@ const getCallTreeMetrics = (callTree) => {
   };
 
   const criticalPathLength = (roots) => {
+    if (!roots.length) return 0;
     const pathLength = (node) => {
-      const childCritical = node.children.filter((child) => child.critical);
-      if (!childCritical.length) {
+      const criticalChildren = node.children.filter((child) => child.critical);
+      if (!criticalChildren.length) {
         return 1;
       }
-      return 1 + Math.max(...childCritical.map((child) => pathLength(child)));
+      return 1 + Math.max(...criticalChildren.map((child) => pathLength(child)));
     };
-
-    return Math.max(0, ...roots.filter((root) => root.critical).map((root) => pathLength(root)));
+    return Math.max(...roots.filter((root) => root.critical).map((root) => pathLength(root)), 0);
   };
 
   (callTree ?? []).forEach((root) => dfs(root, 1));
@@ -91,9 +92,7 @@ export default function App() {
   }, [selectedEvent]);
 
   const analytics = useMemo(() => {
-    if (!result) {
-      return null;
-    }
+    if (!result) return null;
 
     const stateCounts = getStateCounts(result.events);
     const uniqueStates = stateCounts.size;
@@ -114,12 +113,6 @@ export default function App() {
     const pattern = result.input?.p ?? p;
     const starCount = (pattern.match(/\*/g) || []).length;
     const dotCount = (pattern.match(/\./g) || []).length;
-    const difficultyScore = pattern.length
-      ? Number(
-          Math.min(1, (starCount * 1.8 + dotCount * 1.2 + pattern.length * 0.4) / (pattern.length * 2 + 1))
-            .toFixed(2),
-        )
-      : 0;
 
     const tracesByAlgorithm = new Map((comparison || []).map((trace) => [trace.algorithm, trace]));
     const backtracking = tracesByAlgorithm.get('backtracking');
@@ -171,7 +164,11 @@ export default function App() {
         patternLength: pattern.length,
         starDensity: pattern.length ? starCount / pattern.length : 0,
         dotDensity: pattern.length ? dotCount / pattern.length : 0,
-        difficultyScore,
+        difficultyScore: pattern.length
+          ? Number(
+              Math.min(1, (starCount * 1.8 + dotCount * 1.2 + pattern.length * 0.4) / (pattern.length * 2 + 1)).toFixed(2),
+            )
+          : 0,
       },
       comparisonMetrics,
     };
@@ -286,134 +283,142 @@ export default function App() {
           <section className="panel pseudocode-panel">
             <h2>Algorithm reference</h2>
             <div className="markdown-body">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {pseudocodeByAlgorithm[result.algorithm] ?? ''}
-              </ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{pseudocodeByAlgorithm[result.algorithm] ?? ''}</ReactMarkdown>
             </div>
           </section>
+
           <section className="panel results">
             <h2>Trace result</h2>
-          <div className="summary-grid">
-            <div><strong>Final answer:</strong> {String(result.finalAnswer)}</div>
-            <div><strong>Algorithm:</strong> {result.algorithm}</div>
-            <div><strong>Calls:</strong> {result.metrics?.calls}</div>
-            <div><strong>Memo hits:</strong> {result.metrics?.memoHits}</div>
-            <div><strong>Steps:</strong> {result.metrics?.steps}</div>
-            <div><strong>State graph:</strong> {result.stateGraph?.length}</div>
-          </div>
+            <div className="summary-grid">
+              <div><strong>Final answer:</strong> {String(result.finalAnswer)}</div>
+              <div><strong>Algorithm:</strong> {result.algorithm}</div>
+              <div><strong>Calls:</strong> {result.metrics?.calls}</div>
+              <div><strong>Memo hits:</strong> {result.metrics?.memoHits}</div>
+              <div><strong>Steps:</strong> {result.metrics?.steps}</div>
+              <div><strong>State graph:</strong> {result.stateGraph?.length}</div>
+            </div>
 
-          <ComparisonView traces={comparison} />
+            <ComparisonView traces={comparison} />
 
-          <div className="content-grid">
-            <div className="timeline-panel">
-              <div className="toolbar-row">
-                <h3>Timeline</h3>
-                <div className="toolbar-controls">
-                  <button type="button" onClick={() => setCurrentStep((value) => Math.max(1, value - 1))}>Back</button>
-                  <button type="button" onClick={() => setCurrentStep((value) => Math.min(timeline.length, value + 1))}>Step</button>
-                  <button type="button" onClick={() => setIsPlaying((value) => !value)}>{isPlaying ? 'Pause' : 'Play'}</button>
-                  <button type="button" onClick={() => { setIsPlaying(false); setCurrentStep(0); }}>Restart</button>
+            <div className="content-grid">
+              <div className="timeline-panel">
+                <div className="toolbar-row">
+                  <h3>Timeline</h3>
+                  <div className="toolbar-controls">
+                    <button type="button" onClick={() => setCurrentStep((value) => Math.max(1, value - 1))}>Back</button>
+                    <button type="button" onClick={() => setCurrentStep((value) => Math.min(timeline.length, value + 1))}>Step</button>
+                    <button type="button" onClick={() => setIsPlaying((value) => !value)}>{isPlaying ? 'Pause' : 'Play'}</button>
+                    <button type="button" onClick={() => { setIsPlaying(false); setCurrentStep(0); }}>Restart</button>
+                  </div>
+                </div>
+                <p className="step-indicator">Showing {visibleEvents.length} of {timeline.length} events</p>
+                <div className="timeline-scroll">
+                  <ul className="timeline-list">
+                    {visibleEvents.map((event) => (
+                      <li key={event.id} onClick={() => setSelectedEvent(event)} className={selectedEvent?.id === event.id ? 'selected' : ''}>
+                        <span className="event-badge">{event.type}</span>
+                        <span>step {event.step}</span>
+                        <span>state ({event.state?.i}, {event.state?.j})</span>
+                        <span>{event.description}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </div>
-              <p className="step-indicator">Showing {visibleEvents.length} of {timeline.length} events</p>
-              <div className="timeline-scroll">
-                <ul className="timeline-list">
-                  {visibleEvents.map((event) => (
-                    <li key={event.id} onClick={() => setSelectedEvent(event)} className={selectedEvent?.id === event.id ? 'selected' : ''}>
-                      <span className="event-badge">{event.type}</span>
-                      <span>step {event.step}</span>
-                      <span>state ({event.state?.i}, {event.state?.j})</span>
-                      <span>{event.description}</span>
-                    </li>
-                  ))}
-                </ul>
+
+              <div className="side-panel">
+                <div className="visualizer-scroll">
+                  {result.algorithm === 'bottomup' ? (
+                    <DpTable dp={result.dp} dependencies={result.dependencies} order={result.order} selectedCell={selectedCell} onSelectState={handleSelectState} s={s} p={p} />
+                  ) : (
+                    <TreeView events={timeline} callTree={result.callTree} activeStateKey={selectedCell} onSelectState={handleSelectState} />
+                  )}
+                </div>
+                <div className="inspector-card">
+                  <h3>Inspector</h3>
+                  {selectedEvent ? (
+                    <>
+                      <p><strong>Type:</strong> {selectedEvent.type}</p>
+                      <p><strong>State:</strong> ({selectedEvent.state?.i}, {selectedEvent.state?.j})</p>
+                      <p><strong>Description:</strong> {selectedEvent.description}</p>
+                      <p><strong>Variables:</strong> {JSON.stringify(selectedEvent.variables)}</p>
+                    </>
+                  ) : (
+                    <p>Select an event from the timeline.</p>
+                  )}
+                </div>
               </div>
             </div>
 
-            <div className="side-panel">
-              <div className="visualizer-scroll">
-                {result.algorithm === 'bottomup' ? <DpTable dp={result.dp} dependencies={result.dependencies} order={result.order} selectedCell={selectedCell} onSelectState={handleSelectState} s={s} p={p} /> : <TreeView events={timeline} callTree={result.callTree} activeStateKey={selectedCell} onSelectState={handleSelectState} />}
-              </div>
-              <div className="inspector-card">
-                <h3>Inspector</h3>
-                {selectedEvent ? (
-                  <>
-                    <p><strong>Type:</strong> {selectedEvent.type}</p>
-                    <p><strong>State:</strong> ({selectedEvent.state?.i}, {selectedEvent.state?.j})</p>
-                    <p><strong>Description:</strong> {selectedEvent.description}</p>
-                    <p><strong>Variables:</strong> {JSON.stringify(selectedEvent.variables)}</p>
-                  </>
-                ) : (
-                  <p>Select an event from the timeline.</p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <section className="panel analytics-panel">
-            <h2>Algorithm Analytics</h2>
-            {analytics ? (
-              <>
-                <div className="analytics-grid">
-                  <div className="metric-card">
-                    <h3>State exploration</h3>
-                    <p><strong>Unique states:</strong> {analytics.uniqueStates}</p>
-                    <p><strong>Repeated visits:</strong> {analytics.repeatedVisits}</p>
-                    <p><strong>Repeated ratio:</strong> {formatPercent(analytics.repeatedRatio)}</p>
-                    <p><strong>Coverage:</strong> {analytics.uniqueStates} / {analytics.possibleStates} ({formatPercent(analytics.coverage)})</p>
-                  </div>
-
-                  <div className="metric-card">
-                    <h3>Recursion tree</h3>
-                    <p><strong>Max depth:</strong> {analytics.treeMetrics.maxDepth}</p>
-                    <p><strong>Avg depth:</strong> {analytics.treeMetrics.avgDepth}</p>
-                    <p><strong>Avg branching:</strong> {analytics.treeMetrics.avgBranching}</p>
-                    <p><strong>Leaf nodes:</strong> {analytics.treeMetrics.leaves}</p>
-                    <p><strong>Critical path:</strong> {analytics.treeMetrics.criticalPathLength} states</p>
-                  </div>
-
-                  <div className="metric-card">
-                    <h3>Problem profile</h3>
-                    <p><strong>Pattern length:</strong> {analytics.problemMetrics.patternLength}</p>
-                    <p><strong>Star density:</strong> {formatPercent(analytics.problemMetrics.starDensity)}</p>
-                    <p><strong>Dot density:</strong> {formatPercent(analytics.problemMetrics.dotDensity)}</p>
-                    <p><strong>Difficulty score:</strong> {analytics.problemMetrics.difficultyScore}</p>
-                  </div>
-
-                  {result.algorithm === 'memo' ? (
+            <section className="panel analytics-panel">
+              <h2>Algorithm Analytics</h2>
+              {analytics ? (
+                <>
+                  <div className="analytics-grid">
                     <div className="metric-card">
-                      <h3>Memoization</h3>
-                      <p><strong>Hits:</strong> {analytics.memoHits}</p>
-                      <p><strong>Misses:</strong> {analytics.memoMisses}</p>
-                      <p><strong>Hit rate:</strong> {formatPercent(analytics.hitRate)}</p>
-                      <p><strong>Cache utilization:</strong> {formatPercent(analytics.cacheUtilization)}</p>
-                      <p><strong>Reuse factor:</strong> {analytics.reuseFactor}</p>
+                      <h3>State exploration</h3>
+                      <p><strong>Unique states:</strong> {analytics.uniqueStates}</p>
+                      <p><strong>Repeated visits:</strong> {analytics.repeatedVisits}</p>
+                      <p><strong>Repeated ratio:</strong> {formatPercent(analytics.repeatedRatio)}</p>
+                      <p><strong>Coverage:</strong> {analytics.uniqueStates} / {analytics.possibleStates} ({formatPercent(analytics.coverage)})</p>
+                    </div>
+
+                    <div className="metric-card">
+                      <h3>Recursion tree</h3>
+                      <p><strong>Max depth:</strong> {analytics.treeMetrics.maxDepth}</p>
+                      <p><strong>Avg depth:</strong> {analytics.treeMetrics.avgDepth}</p>
+                      <p><strong>Avg branching:</strong> {analytics.treeMetrics.avgBranching}</p>
+                      <p><strong>Leaf nodes:</strong> {analytics.treeMetrics.leaves}</p>
+                      <p><strong>Critical path:</strong> {analytics.treeMetrics.criticalPathLength} states</p>
+                    </div>
+
+                    <div className="metric-card">
+                      <h3>Problem profile</h3>
+                      <p><strong>Pattern length:</strong> {analytics.problemMetrics.patternLength}</p>
+                      <p><strong>Star density:</strong> {formatPercent(analytics.problemMetrics.starDensity)}</p>
+                      <p><strong>Dot density:</strong> {formatPercent(analytics.problemMetrics.dotDensity)}</p>
+                      <p><strong>Difficulty score:</strong> {analytics.problemMetrics.difficultyScore}</p>
+                    </div>
+
+                    {result.algorithm === 'memo' ? (
+                      <div className="metric-card">
+                        <h3>Memoization</h3>
+                        <p><strong>Hits:</strong> {analytics.memoHits}</p>
+                        <p><strong>Misses:</strong> {analytics.memoMisses}</p>
+                        <p><strong>Hit rate:</strong> {formatPercent(analytics.hitRate)}</p>
+                        <p><strong>Cache utilization:</strong> {formatPercent(analytics.cacheUtilization)}</p>
+                        <p><strong>Reuse factor:</strong> {analytics.reuseFactor}</p>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {analytics.comparisonMetrics.speedupMemo !== null ? (
+                    <div className="comparison-grid">
+                      <div className="metric-card">
+                        <h3>Comparison</h3>
+                        <p><strong>Memo vs Backtracking:</strong> {analytics.comparisonMetrics.speedupMemo}x faster</p>
+                        <p><strong>Calls avoided:</strong> {analytics.comparisonMetrics.callsAvoided}</p>
+                        <p><strong>Call reduction:</strong> {formatPercent(analytics.comparisonMetrics.callsReduction)}</p>
+                        <p><strong>Best calls:</strong> {analytics.comparisonMetrics.winnerCalls}</p>
+                        <p><strong>Best steps:</strong> {analytics.comparisonMetrics.winnerSteps}</p>
+                      </div>
                     </div>
                   ) : null}
-                </div>
+                </>
+              ) : (
+                <p>No analytics available yet.</p>
+              )}
+            </section>
 
-                {analytics.comparisonMetrics.speedupMemo !== null ? (
-                  <div className="comparison-grid">
-                    <div className="metric-card">
-                      <h3>Comparison</h3>
-                      <p><strong>Memo vs Backtracking:</strong> {analytics.comparisonMetrics.speedupMemo}x faster</p>
-                      <p><strong>Calls avoided:</strong> {analytics.comparisonMetrics.callsAvoided}</p>
-                      <p><strong>Call reduction:</strong> {formatPercent(analytics.comparisonMetrics.callsReduction)}</p>
-                      <p><strong>Best calls:</strong> {analytics.comparisonMetrics.winnerCalls}</p>
-                      <p><strong>Best steps:</strong> {analytics.comparisonMetrics.winnerSteps}</p>
-                    </div>
-                  </div>
-                ) : null}
-              </>
-            ) : (
-              <p>No analytics available yet.</p>
-            )}
+            {result.metrics?.analytics ? (
+              <section className="panel analytics-panel">
+                <h2>Visual Analytics</h2>
+                <AnalyticsCharts analytics={result.metrics.analytics} algorithm={result.algorithm} comparison={comparison} />
+              </section>
+            ) : null}
           </section>
-        </section>
         </>
       ) : null}
     </div>
   );
 }
-
-

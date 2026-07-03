@@ -1,32 +1,20 @@
+import { useMemo, useState } from 'react';
+
+const formatPercent = (value) => (typeof value === 'number' ? `${Math.round(value * 100)}%` : 'N/A');
+const formatValue = (value) => (value == null ? 'N/A' : String(value));
+
+const metricOptions = [
+  { value: 'calls', label: 'Calls' },
+  { value: 'steps', label: 'Steps' },
+  { value: 'uniqueStates', label: 'Unique states' },
+  { value: 'repeatedVisits', label: 'Repeated visits' },
+  { value: 'coverage', label: 'Coverage' },
+  { value: 'hitRate', label: 'Hit rate' },
+  { value: 'maxDepth', label: 'Max depth' },
+];
+
 export default function ComparisonView({ traces }) {
-  if (!traces || traces.length === 0) {
-    return null;
-  }
-
-  const formatPercent = (value) => (typeof value === 'number' ? `${Math.round(value * 100)}%` : 'N/A');
-  const formatValue = (value) => (value == null ? 'N/A' : String(value));
-
-  const summary = [];
-  const backtracking = traces.find((trace) => trace.algorithm === 'backtracking');
-  const memo = traces.find((trace) => trace.algorithm === 'memo');
-  if (backtracking && memo) {
-    summary.push({
-      label: 'Call reduction (vs w/o memo)',
-      value: `${backtracking.metrics.calls - memo.metrics.calls} fewer calls`,
-    });
-    summary.push({
-      label: 'Memo hits',
-      value: `${memo.metrics.memoHits} memo hits`,
-    });
-    summary.push({
-      label: 'Cache utilization',
-      value: `${memo.metrics.uniqueStates ?? 0} / ${memo.metrics.possibleStates ?? 0}`,
-    });
-    summary.push({
-      label: 'Step savings (vs w/o memo)',
-      value: `${backtracking.metrics.steps - memo.metrics.steps} fewer steps`,
-    });
-  }
+  const [selectedMetric, setSelectedMetric] = useState('calls');
 
   const tableFields = [
     { label: 'Calls', field: 'calls' },
@@ -37,19 +25,43 @@ export default function ComparisonView({ traces }) {
     { label: 'Memo hits', field: 'memoHits' },
     { label: 'Hit rate', field: 'hitRate', formatter: formatPercent },
     { label: 'Reuse factor', field: 'reuseFactor' },
+    { label: 'Max depth', field: 'maxDepth' },
   ];
 
-  const chartMetrics = [
-    { key: 'calls', label: 'Calls', variant: 'primary' },
-    { key: 'steps', label: 'Steps', variant: 'accent' },
-    { key: 'coverage', label: 'Coverage', isPercent: true },
-    { key: 'hitRate', label: 'Hit rate', isPercent: true },
-  ];
+  const backtracking = traces?.find((trace) => trace.algorithm === 'backtracking');
+  const memo = traces?.find((trace) => trace.algorithm === 'memo');
 
-  const maxValues = {
-    calls: Math.max(1, ...traces.map((trace) => trace.metrics?.calls ?? 0)),
-    steps: Math.max(1, ...traces.map((trace) => trace.metrics?.steps ?? 0)),
-  };
+  const comparisonStats = useMemo(() => {
+    if (!backtracking || !memo) return [];
+
+    return [
+      {
+        label: 'Call reduction (vs w/o memo)',
+        value: `${Math.max(0, backtracking.metrics?.calls - memo.metrics?.calls)} fewer calls`,
+      },
+      {
+        label: 'Memo hits',
+        value: `${memo.metrics?.memoHits ?? 0} memo hits`,
+      },
+      {
+        label: 'Cache utilization',
+        value: `${memo.metrics?.uniqueStates ?? 0} / ${memo.metrics?.possibleStates ?? 0}`,
+      },
+      {
+        label: 'Step savings (vs w/o memo)',
+        value: `${Math.max(0, backtracking.metrics?.steps - memo.metrics?.steps)} fewer steps`,
+      },
+    ];
+  }, [backtracking, memo]);
+
+  if (!traces || traces.length === 0) {
+    return null;
+  }
+
+  const selectedMetricMax = Math.max(1, ...traces.map((trace) => {
+    const value = trace.metrics?.[selectedMetric];
+    return typeof value === 'number' ? Math.abs(value) : 0;
+  }));
 
   return (
     <div className="comparison-view">
@@ -70,7 +82,9 @@ export default function ComparisonView({ traces }) {
               <tr key={field}>
                 <td>{label}</td>
                 {traces.map((trace) => (
-                  <td key={trace.algorithm}>{formatter ? formatter(trace.metrics?.[field]) : formatValue(trace.metrics?.[field])}</td>
+                  <td key={`${trace.algorithm}-${field}`}>
+                    {formatter ? formatter(trace.metrics?.[field]) : formatValue(trace.metrics?.[field])}
+                  </td>
                 ))}
               </tr>
             ))}
@@ -78,26 +92,32 @@ export default function ComparisonView({ traces }) {
         </table>
       </div>
 
-      <div className="comparison-bar-charts">
-        {chartMetrics.map(({ key, label, variant, isPercent }) => {
-          const topValue = isPercent ? 1 : Math.max(1, ...traces.map((trace) => trace.metrics?.[key] ?? 0));
+      <div className="metric-selector">
+        <label>
+          Compare metric
+          <select value={selectedMetric} onChange={(event) => setSelectedMetric(event.target.value)}>
+            {metricOptions.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <div className="comparison-chart">
+        {traces.map((trace) => {
+          const rawValue = trace.metrics?.[selectedMetric] ?? 0;
+          const width = selectedMetric === 'coverage' || selectedMetric === 'hitRate'
+            ? Math.round((rawValue ?? 0) * 100)
+            : Math.round((Math.abs(rawValue) / selectedMetricMax) * 100);
           return (
-            <div key={key} className="chart-card">
-              <h4>{label}</h4>
-              {traces.map((trace) => {
-                const rawValue = trace.metrics?.[key] ?? 0;
-                const value = isPercent ? rawValue : rawValue;
-                const width = isPercent ? Math.round(rawValue * 100) : Math.round((rawValue / topValue) * 100);
-                return (
-                  <div key={trace.algorithm} className="bar-row">
-                    <span className="bar-label">{trace.algorithm}</span>
-                    <div className="bar-track">
-                      <div className={`bar-fill${variant === 'accent' ? ' accent' : ''}`} style={{ width: `${width}%` }} />
-                    </div>
-                    <span className="bar-value">{isPercent ? formatPercent(rawValue) : formatValue(value === 0 ? 0 : rawValue)}</span>
-                  </div>
-                );
-              })}
+            <div key={trace.algorithm} className="bar-row">
+              <span className="bar-label">{trace.algorithm}</span>
+              <div className="bar-track">
+                <div className="bar-fill" style={{ width: `${width}%` }} />
+              </div>
+              <span className="bar-value">
+                {selectedMetric === 'coverage' || selectedMetric === 'hitRate' ? formatPercent(rawValue) : formatValue(rawValue)}
+              </span>
             </div>
           );
         })}
@@ -108,19 +128,16 @@ export default function ComparisonView({ traces }) {
           <div key={trace.algorithm} className="comparison-card">
             <h4>{trace.algorithm}</h4>
             <p><strong>Answer:</strong> {String(trace.finalAnswer)}</p>
-            <p><strong>Calls:</strong> {formatValue(trace.metrics?.calls)}</p>
-            <p><strong>Memo hits:</strong> {formatValue(trace.metrics?.memoHits ?? 0)}</p>
-            <p><strong>Steps:</strong> {formatValue(trace.metrics?.steps)}</p>
             <p><strong>State graph:</strong> {formatValue(trace.stateGraph?.length)}</p>
           </div>
         ))}
       </div>
 
-      {summary.length ? (
+      {comparisonStats.length ? (
         <div className="comparison-summary">
           <h4>Memoization impact</h4>
           <div className="comparison-grid">
-            {summary.map((item) => (
+            {comparisonStats.map((item) => (
               <div key={item.label} className="comparison-card highlight-card">
                 <strong>{item.label}</strong>
                 <p>{item.value}</p>

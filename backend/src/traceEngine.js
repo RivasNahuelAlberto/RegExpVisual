@@ -64,7 +64,103 @@ const getCallTreeMetrics = (callTree) => {
   };
 };
 
-const computeTraceMetrics = ({ events, callTree, sLength, pLength, calls, memoHits, algorithm }) => {
+const buildAnalyticsTimeline = ({ events, possibleStates, algorithm }) => {
+  const uniqueStates = new Set();
+  const storedStates = new Set();
+  let cumulativeCalls = 0;
+  let cumulativeMemoHits = 0;
+  let currentDepth = 0;
+
+  const calls = [];
+  const uniqueStatesSeries = [];
+  const memoHitsSeries = [];
+  const coverageSeries = [];
+  const depthSeries = [];
+  const cacheStatesSeries = [];
+
+  for (const event of events ?? []) {
+    if (event.type === 'CALL' || event.type === 'DP_CELL') {
+      cumulativeCalls += 1;
+    }
+
+    if (event.type === 'MEMO_HIT') {
+      cumulativeMemoHits += 1;
+    }
+
+    if (event.type === 'MEMO_STORE' && event.state) {
+      storedStates.add(stateKey(event.state));
+    }
+
+    if (event.type === 'CALL') {
+      currentDepth += 1;
+    }
+
+    if (event.type === 'RETURN') {
+      currentDepth = Math.max(0, currentDepth - 1);
+    }
+
+    if (event.type === 'DP_CELL' && algorithm === 'bottomup') {
+      currentDepth = 1;
+    }
+
+    const state = event.state;
+    if (state && Number.isInteger(state.i) && Number.isInteger(state.j)) {
+      uniqueStates.add(stateKey(state));
+    }
+
+    const step = event.step;
+    const uniqueValue = uniqueStates.size;
+    const coverageValue = possibleStates ? uniqueValue / possibleStates : 0;
+
+    calls.push({ step, value: cumulativeCalls });
+    uniqueStatesSeries.push({ step, value: uniqueValue });
+    memoHitsSeries.push({ step, value: cumulativeMemoHits });
+    coverageSeries.push({ step, value: coverageValue });
+    depthSeries.push({ step, value: currentDepth });
+    cacheStatesSeries.push({ step, value: storedStates.size });
+  }
+
+  return {
+    calls,
+    uniqueStates: uniqueStatesSeries,
+    memoHits: memoHitsSeries,
+    coverage: coverageSeries,
+    depth: depthSeries,
+    storedStates: cacheStatesSeries,
+  };
+};
+
+const computeBranchingActivity = (callTree) => {
+  const branchByLevel = new Map();
+
+  const dfs = (node, level = 1) => {
+    if (node.children.length) {
+      branchByLevel.set(level, (branchByLevel.get(level) ?? 0) + node.children.length);
+      node.children.forEach((child) => dfs(child, level + 1));
+    }
+  };
+
+  (callTree ?? []).forEach((root) => dfs(root, 1));
+
+  return Array.from(branchByLevel.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([level, children]) => ({ level, children }));
+};
+
+const createPatternDifficulty = (pattern) => {
+  const starCount = (pattern.match(/\*/g) || []).length;
+  const dotCount = (pattern.match(/\./g) || []).length;
+  const branchingPoints = starCount;
+
+  return {
+    starCount,
+    dotCount,
+    patternLength: pattern.length,
+    branchingPoints,
+  };
+};
+
+const computeTraceMetrics = ({ events, callTree, sLength, pLength, calls, memoHits, algorithm, pattern }) => {
   const stateCounts = collectStateCounts(events);
   const uniqueStates = stateCounts.size;
   const totalStateVisits = Array.from(stateCounts.values()).reduce((sum, value) => sum + value, 0);
@@ -81,6 +177,9 @@ const computeTraceMetrics = ({ events, callTree, sLength, pLength, calls, memoHi
   const reuseFactor = uniqueStates ? Number((totalStateVisits / uniqueStates).toFixed(2)) : 0;
   const cacheUtilization = possibleStates ? uniqueStates / possibleStates : 0;
   const treeMetrics = algorithm === 'bottomup' ? null : getCallTreeMetrics(callTree);
+  const analyticsTimeline = buildAnalyticsTimeline({ events, possibleStates, algorithm });
+  const branchingActivity = algorithm === 'bottomup' ? [] : computeBranchingActivity(callTree);
+  const patternDifficulty = createPatternDifficulty(pattern);
 
   return {
     calls,
@@ -102,6 +201,11 @@ const computeTraceMetrics = ({ events, callTree, sLength, pLength, calls, memoHi
     avgBranching: treeMetrics?.avgBranching ?? 0,
     leaves: treeMetrics?.leaves ?? 0,
     criticalPathLength: treeMetrics?.criticalPathLength ?? 0,
+    analytics: {
+      timeline: analyticsTimeline,
+      branchingActivity,
+      patternDifficulty,
+    },
   };
 };
 
