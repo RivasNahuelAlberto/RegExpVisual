@@ -1,15 +1,20 @@
-export function runBottomUp({ s, p }) {
-  const events = [];
+export function runBottomUp({ s, p, stream = false, onEvent = null, shouldAbort = null }) {
+  const events = stream ? null : [];
   const m = s.length;
   const n = p.length;
   const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(false));
   const dependencyMap = {};
   const orderMap = {};
+  const stateCounts = new Map();
   let step = 0;
 
   function pushEvent(type, state, description, extra = {}) {
+    if (typeof shouldAbort === 'function' && shouldAbort()) {
+      throw new Error('Client disconnected');
+    }
+
     step += 1;
-    events.push({
+    const event = {
       id: `${type}-${step}`,
       step,
       type,
@@ -19,14 +24,33 @@ export function runBottomUp({ s, p }) {
       variables: {},
       codeReference: null,
       ...extra,
-    });
+    };
+
+    if (events) {
+      events.push(event);
+    }
+
+    if (typeof onEvent === 'function') {
+      onEvent(event);
+    }
+
+    if (state && Number.isInteger(state.i) && Number.isInteger(state.j)) {
+      const key = `${state.i},${state.j}`;
+      stateCounts.set(key, (stateCounts.get(key) ?? 0) + 1);
+    }
   }
 
   dp[m][n] = true;
   pushEvent('DP_START', { i: m, j: n }, 'initialize base case', { variables: { value: true } });
 
   for (let i = m; i >= 0; i -= 1) {
+    if (typeof shouldAbort === 'function' && shouldAbort()) {
+      throw new Error('Client disconnected');
+    }
     for (let j = n - 1; j >= 0; j -= 1) {
+      if (typeof shouldAbort === 'function' && shouldAbort()) {
+        throw new Error('Client disconnected');
+      }
       const firstMatch = i < m && (s[i] === p[j] || p[j] === '.');
       orderMap[`${i},${j}`] = step + 1;
       pushEvent('DP_CELL', { i, j }, 'process cell', { variables: { firstMatch } });
@@ -49,15 +73,6 @@ export function runBottomUp({ s, p }) {
 
   pushEvent('DP_FINISH', { i: 0, j: 0 }, 'dp finished', { variables: { value: dp[0][0] } });
 
-  const stateCounts = new Map();
-  events.forEach((event) => {
-    const state = event.state;
-    if (state && Number.isInteger(state.i) && Number.isInteger(state.j)) {
-      const key = `${state.i},${state.j}`;
-      stateCounts.set(key, (stateCounts.get(key) ?? 0) + 1);
-    }
-  });
-
   const uniqueStates = stateCounts.size;
   const totalStateVisits = Array.from(stateCounts.values()).reduce((sum, value) => sum + value, 0);
   const repeatedVisits = Math.max(0, totalStateVisits - uniqueStates);
@@ -70,16 +85,15 @@ export function runBottomUp({ s, p }) {
     .slice(0, 5);
   const reuseFactor = uniqueStates ? Number((totalStateVisits / uniqueStates).toFixed(2)) : 0;
 
-  return {
+  const result = {
     algorithm: 'bottomup',
     input: { s, p },
-    events,
     dp,
     dependencies: dependencyMap,
     order: orderMap,
     metrics: {
       calls: 1,
-      steps: events.length,
+      steps: step,
       depth: Math.max(m, n),
       uniqueStates,
       totalStateVisits,
@@ -91,4 +105,10 @@ export function runBottomUp({ s, p }) {
     },
     finalAnswer: dp[0][0],
   };
+
+  if (!stream) {
+    result.events = events;
+  }
+
+  return result;
 }

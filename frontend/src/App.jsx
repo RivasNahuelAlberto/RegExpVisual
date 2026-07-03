@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import ComparisonView from './ComparisonView';
@@ -80,6 +80,10 @@ export default function App() {
   const [currentStep, setCurrentStep] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [comparison, setComparison] = useState([]);
+  const [useStream, setUseStream] = useState(true);
+  const [streamStatus, setStreamStatus] = useState('idle');
+  const [progressMessage, setProgressMessage] = useState('');
+  const eventSourceRef = useRef(null);
 
   const timeline = useMemo(() => result?.events ?? [], [result]);
   const visibleEvents = useMemo(() => timeline.slice(0, currentStep), [timeline, currentStep]);
@@ -215,6 +219,90 @@ export default function App() {
     event.preventDefault();
     setLoading(true);
     setError('');
+    setStreamStatus('idle');
+    setProgressMessage('');
+
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+
+    if (useStream) {
+      return new Promise((resolve) => {
+        const params = new URLSearchParams({ s, p, algorithm });
+        const source = new EventSource(`/api/run-stream?${params.toString()}`);
+        eventSourceRef.current = source;
+        const incrementalEvents = [];
+        let runningResult = {
+          algorithm,
+          input: { s, p },
+          events: [],
+          callTree: [],
+          stateGraph: [],
+          metrics: null,
+          finalAnswer: null,
+        };
+
+        setStreamStatus('connecting');
+
+        source.onopen = () => {
+          setStreamStatus('streaming');
+          setProgressMessage('Streaming trace events...');
+        };
+
+        source.onerror = () => {
+          setError('Stream connection failed. Falling back to full trace.');
+          setStreamStatus('error');
+          source.close();
+          eventSourceRef.current = null;
+          setLoading(false);
+          resolve();
+        };
+
+        source.onmessage = (event) => {
+          try {
+            const payload = JSON.parse(event.data);
+            if (payload.type === 'EVENT') {
+              incrementalEvents.push(payload.event);
+              runningResult = {
+                ...runningResult,
+                events: [...incrementalEvents],
+              };
+              setResult(runningResult);
+              setSelectedEvent(incrementalEvents[0] ?? null);
+              setCurrentStep(Math.min(incrementalEvents.length, 1));
+              setProgressMessage(`Received ${incrementalEvents.length} events`);
+            }
+            if (payload.type === 'SUMMARY') {
+              runningResult = {
+                ...runningResult,
+                metrics: payload.metrics,
+                finalAnswer: payload.finalAnswer,
+              };
+              setResult(runningResult);
+            }
+            if (payload.type === 'COMPLETE') {
+              setStreamStatus('complete');
+              setProgressMessage('Trace complete.');
+              setLoading(false);
+              source.close();
+              eventSourceRef.current = null;
+              resolve();
+            }
+            if (payload.type === 'ERROR') {
+              setError(payload.error);
+              setStreamStatus('error');
+              setLoading(false);
+              source.close();
+              eventSourceRef.current = null;
+              resolve();
+            }
+          } catch (parseError) {
+            console.error('Failed to parse SSE payload', parseError);
+          }
+        };
+      });
+    }
 
     try {
       const data = await postJson('/api/run', { s, p, algorithm });
@@ -275,6 +363,19 @@ export default function App() {
           {loading ? 'Running…' : 'Run trace'}
         </button>
       </form>
+
+      <div className="panel streaming-panel">
+        <label className="streaming-toggle">
+          <input type="checkbox" checked={useStream} onChange={(e) => setUseStream(e.target.checked)} />
+          Use streaming execution (SSE)
+        </label>
+        {useStream ? (
+          <div className="streaming-status">
+            <span>Status: {streamStatus}</span>
+            <span>{progressMessage}</span>
+          </div>
+        ) : null}
+      </div>
 
       {error ? <div className="error">{error}</div> : null}
 

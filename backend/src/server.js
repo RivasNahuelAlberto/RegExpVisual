@@ -44,6 +44,63 @@ app.get('/api/algorithms', (_req, res) => {
   res.json({ algorithms: ['backtracking', 'memo', 'bottomup'] });
 });
 
+app.get('/api/run-stream', (req, res) => {
+  const s = String(req.query.s ?? '');
+  const p = String(req.query.p ?? '');
+  const algorithm = String(req.query.algorithm ?? 'memo');
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  let clientDisconnected = false;
+  req.on('close', () => {
+    clientDisconnected = true;
+  });
+
+  const sendStreamPayload = (payload) => {
+    if (clientDisconnected || res.writableEnded) {
+      return;
+    }
+    try {
+      res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    } catch (error) {
+      clientDisconnected = true;
+    }
+  };
+
+  Promise.resolve(runTrace({
+    s,
+    p,
+    algorithm,
+    stream: true,
+    onEvent: (event) => {
+      sendStreamPayload({ type: 'EVENT', event });
+    },
+    shouldAbort: () => clientDisconnected,
+  }))
+    .then((trace) => {
+      if (!clientDisconnected) {
+        sendStreamPayload({
+          type: 'SUMMARY',
+          algorithm: trace.algorithm,
+          input: trace.input,
+          finalAnswer: trace.finalAnswer,
+          metrics: trace.metrics,
+        });
+        sendStreamPayload({ type: 'COMPLETE' });
+      }
+      res.end();
+    })
+    .catch((error) => {
+      if (!clientDisconnected) {
+        res.write(`data: ${JSON.stringify({ type: 'ERROR', error: String(error) })}\n\n`);
+        res.end();
+      }
+    });
+});
+
 app.post('/api/run', (req, res) => {
   const { s, p, algorithm = 'memo' } = req.body;
   const trace = runTrace({ s, p, algorithm });

@@ -64,7 +64,11 @@ const getCallTreeMetrics = (callTree) => {
   };
 };
 
-const buildAnalyticsTimeline = ({ events, possibleStates, algorithm }) => {
+const buildAnalyticsTimeline = ({ events, possibleStates, algorithm, incremental = null }) => {
+  if (incremental) {
+    return incremental;
+  }
+
   const uniqueStates = new Set();
   const storedStates = new Set();
   let cumulativeCalls = 0;
@@ -161,12 +165,12 @@ const createPatternDifficulty = (pattern) => {
   };
 };
 
-const computeTraceMetrics = ({ events, callTree, sLength, pLength, calls, memoHits, algorithm, pattern }) => {
-  const stateCounts = collectStateCounts(events);
-  const uniqueStates = stateCounts.size;
-  const totalStateVisits = Array.from(stateCounts.values()).reduce((sum, value) => sum + value, 0);
+const computeTraceMetrics = ({ events, stateCounts, analyticsTimeline, callTree, sLength, pLength, calls, memoHits, algorithm, pattern }) => {
+  const mergedStateCounts = stateCounts || collectStateCounts(events);
+  const uniqueStates = mergedStateCounts.size;
+  const totalStateVisits = Array.from(mergedStateCounts.values()).reduce((sum, value) => sum + value, 0);
   const repeatedVisits = Math.max(0, totalStateVisits - uniqueStates);
-  const repeatedStates = Array.from(stateCounts.entries())
+  const repeatedStates = Array.from(mergedStateCounts.entries())
     .map(([state, count]) => ({ state, count }))
     .filter((entry) => entry.count > 1)
     .sort((a, b) => b.count - a.count)
@@ -178,13 +182,13 @@ const computeTraceMetrics = ({ events, callTree, sLength, pLength, calls, memoHi
   const reuseFactor = uniqueStates ? Number((totalStateVisits / uniqueStates).toFixed(2)) : 0;
   const cacheUtilization = possibleStates ? uniqueStates / possibleStates : 0;
   const treeMetrics = algorithm === 'bottomup' ? null : getCallTreeMetrics(callTree);
-  const analyticsTimeline = buildAnalyticsTimeline({ events, possibleStates, algorithm });
+  const finalAnalyticsTimeline = analyticsTimeline || buildAnalyticsTimeline({ events, possibleStates, algorithm });
   const branchingActivity = algorithm === 'bottomup' ? [] : computeBranchingActivity(callTree);
   const patternDifficulty = createPatternDifficulty(pattern);
 
   return {
     calls,
-    steps: events.length,
+    steps: events ? events.length : finalAnalyticsTimeline.calls.length,
     depth: treeMetrics?.maxDepth ?? 1,
     memoHits,
     memoMisses,
@@ -203,25 +207,43 @@ const computeTraceMetrics = ({ events, callTree, sLength, pLength, calls, memoHi
     leaves: treeMetrics?.leaves ?? 0,
     criticalPathLength: treeMetrics?.criticalPathLength ?? 0,
     analytics: {
-      timeline: analyticsTimeline,
+      timeline: finalAnalyticsTimeline,
       branchingActivity,
       patternDifficulty,
     },
   };
 };
 
-export function runAlgorithm({ s, p, algorithm = 'memo' }) {
-  const events = [];
+export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent = null, shouldAbort = null }) {
+  const events = stream ? null : [];
   const memo = algorithm === 'memo' ? new Map() : null;
   const callTree = [];
   const nodeStack = [];
+  const stateCounts = new Map();
   let calls = 0;
   let step = 0;
 
   function pushEvent(type, state, description, extra = {}) {
+    if (typeof shouldAbort === 'function' && shouldAbort()) {
+      throw new Error('Client disconnected');
+    }
+
     step += 1;
     const event = createEvent(type, state, description, { step, ...extra });
-    events.push(event);
+
+    if (events) {
+      events.push(event);
+    }
+
+    if (typeof onEvent === 'function') {
+      onEvent(event);
+    }
+
+    if (state && Number.isInteger(state.i) && Number.isInteger(state.j)) {
+      const key = `${state.i},${state.j}`;
+      stateCounts.set(key, (stateCounts.get(key) ?? 0) + 1);
+    }
+
     return event;
   }
 
@@ -310,9 +332,11 @@ export function runAlgorithm({ s, p, algorithm = 'memo' }) {
     markCriticalPath(root);
   });
 
-  const memoHits = events.filter((event) => event.type === 'MEMO_HIT').length;
+  const memoHits = events ? events.filter((event) => event.type === 'MEMO_HIT').length : Array.from(stateCounts.values()).filter((count) => count > 1).length;
   const metrics = computeTraceMetrics({
     events,
+    stateCounts,
+    analyticsTimeline: null,
     callTree,
     sLength: s.length,
     pLength: p.length,
@@ -322,13 +346,18 @@ export function runAlgorithm({ s, p, algorithm = 'memo' }) {
     pattern: p,
   });
 
-  return {
+  const result = {
     algorithm,
     input: { s, p },
-    events,
     callTree,
-    stateGraph: Array.from(new Set(events.map((event) => `${event.state.i},${event.state.j}`))),
+    stateGraph: Array.from(new Set((events ?? []).map((event) => `${event.state.i},${event.state.j}`))),
     metrics,
     finalAnswer,
   };
+
+  if (!stream) {
+    result.events = events;
+  }
+
+  return result;
 }
