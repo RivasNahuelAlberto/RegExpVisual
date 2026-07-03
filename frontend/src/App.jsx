@@ -7,6 +7,67 @@ import TreeView from './TreeView';
 import { postJson } from './apiClient';
 import pseudocodeByAlgorithm from './pseudocodeData';
 
+const getStateCounts = (events) => {
+  const counts = new Map();
+  for (const event of events ?? []) {
+    const state = event.state;
+    if (state && Number.isInteger(state.i) && Number.isInteger(state.j)) {
+      const key = `${state.i},${state.j}`;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+  }
+  return counts;
+};
+
+const getCallTreeMetrics = (callTree) => {
+  let nodeCount = 0;
+  let totalDepth = 0;
+  let internalNodes = 0;
+  let totalChildren = 0;
+  let leaves = 0;
+  let maxDepth = 0;
+
+  const dfs = (node, depth) => {
+    nodeCount += 1;
+    totalDepth += depth;
+    maxDepth = Math.max(maxDepth, depth);
+
+    if (!node.children.length) {
+      leaves += 1;
+      return;
+    }
+
+    internalNodes += 1;
+    totalChildren += node.children.length;
+    node.children.forEach((child) => dfs(child, depth + 1));
+  };
+
+  const criticalPathLength = (roots) => {
+    const pathLength = (node) => {
+      const childCritical = node.children.filter((child) => child.critical);
+      if (!childCritical.length) {
+        return 1;
+      }
+      return 1 + Math.max(...childCritical.map((child) => pathLength(child)));
+    };
+
+    return Math.max(0, ...roots.filter((root) => root.critical).map((root) => pathLength(root)));
+  };
+
+  (callTree ?? []).forEach((root) => dfs(root, 1));
+
+  return {
+    nodeCount,
+    maxDepth,
+    avgDepth: nodeCount ? Number((totalDepth / nodeCount).toFixed(2)) : 0,
+    avgBranching: internalNodes ? Number((totalChildren / internalNodes).toFixed(2)) : 0,
+    leaves,
+    criticalPathLength: criticalPathLength(callTree ?? []),
+  };
+};
+
+const formatPercent = (value) => `${Math.round(value * 100)}%`;
+
 export default function App() {
   const [s, setS] = useState('aa');
   const [p, setP] = useState('a*');
@@ -28,6 +89,93 @@ export default function App() {
     }
     return null;
   }, [selectedEvent]);
+
+  const analytics = useMemo(() => {
+    if (!result) {
+      return null;
+    }
+
+    const stateCounts = getStateCounts(result.events);
+    const uniqueStates = stateCounts.size;
+    const totalStateVisits = Array.from(stateCounts.values()).reduce((sum, value) => sum + value, 0);
+    const repeatedVisits = Math.max(0, totalStateVisits - uniqueStates);
+    const repeatedRatio = totalStateVisits ? repeatedVisits / totalStateVisits : 0;
+    const sLength = result.input?.s?.length ?? s.length;
+    const pLength = result.input?.p?.length ?? p.length;
+    const possibleStates = (sLength + 1) * (pLength + 1);
+    const coverage = possibleStates ? uniqueStates / possibleStates : 0;
+    const treeMetrics = getCallTreeMetrics(result.callTree);
+    const calls = result.metrics?.calls ?? 0;
+    const memoHits = result.metrics?.memoHits ?? 0;
+    const memoMisses = Math.max(0, calls - memoHits);
+    const hitRate = calls ? memoHits / calls : 0;
+    const cacheUtilization = possibleStates ? uniqueStates / possibleStates : 0;
+    const reuseFactor = uniqueStates ? Number((totalStateVisits / uniqueStates).toFixed(2)) : 0;
+    const pattern = result.input?.p ?? p;
+    const starCount = (pattern.match(/\*/g) || []).length;
+    const dotCount = (pattern.match(/\./g) || []).length;
+    const difficultyScore = pattern.length
+      ? Number(
+          Math.min(1, (starCount * 1.8 + dotCount * 1.2 + pattern.length * 0.4) / (pattern.length * 2 + 1))
+            .toFixed(2),
+        )
+      : 0;
+
+    const tracesByAlgorithm = new Map((comparison || []).map((trace) => [trace.algorithm, trace]));
+    const backtracking = tracesByAlgorithm.get('backtracking');
+    const memoTrace = tracesByAlgorithm.get('memo');
+    const bottomup = tracesByAlgorithm.get('bottomup');
+
+    const comparisonMetrics = {
+      speedupMemo: null,
+      callsAvoided: null,
+      callsReduction: null,
+      winnerCalls: null,
+      winnerSteps: null,
+    };
+
+    if (backtracking && memoTrace) {
+      const backCalls = backtracking.metrics?.calls ?? 0;
+      const memoCalls = memoTrace.metrics?.calls ?? 0;
+      comparisonMetrics.speedupMemo = memoCalls ? Number((backCalls / memoCalls).toFixed(2)) : null;
+      comparisonMetrics.callsAvoided = Math.max(0, backCalls - memoCalls);
+      comparisonMetrics.callsReduction = backCalls ? (backCalls - memoCalls) / backCalls : 0;
+    }
+
+    const rankedBy = (metric) => {
+      const candidates = [backtracking, memoTrace, bottomup].filter(Boolean).sort(
+        (a, b) => (a.metrics?.[metric] ?? Number.POSITIVE_INFINITY) - (b.metrics?.[metric] ?? Number.POSITIVE_INFINITY),
+      );
+      return candidates[0]?.algorithm ?? null;
+    };
+
+    comparisonMetrics.winnerCalls = rankedBy('calls');
+    comparisonMetrics.winnerSteps = rankedBy('steps');
+
+    return {
+      uniqueStates,
+      totalStateVisits,
+      repeatedVisits,
+      repeatedRatio,
+      coverage,
+      possibleStates,
+      treeMetrics,
+      memoHits,
+      memoMisses,
+      hitRate,
+      cacheUtilization,
+      reuseFactor,
+      problemMetrics: {
+        starCount,
+        dotCount,
+        patternLength: pattern.length,
+        starDensity: pattern.length ? starCount / pattern.length : 0,
+        dotDensity: pattern.length ? dotCount / pattern.length : 0,
+        difficultyScore,
+      },
+      comparisonMetrics,
+    };
+  }, [result, comparison, p, s]);
 
   const findEventByState = (state) => {
     if (!state || typeof state.i !== 'number' || typeof state.j !== 'number') {
@@ -153,6 +301,66 @@ export default function App() {
             <div><strong>Steps:</strong> {result.metrics?.steps}</div>
             <div><strong>State graph:</strong> {result.stateGraph?.length}</div>
           </div>
+
+          <section className="panel analytics-panel">
+            <h2>Algorithm Analytics</h2>
+            {analytics ? (
+              <>
+                <div className="analytics-grid">
+                  <div className="metric-card">
+                    <h3>State exploration</h3>
+                    <p><strong>Unique states:</strong> {analytics.uniqueStates}</p>
+                    <p><strong>Repeated visits:</strong> {analytics.repeatedVisits}</p>
+                    <p><strong>Repeated ratio:</strong> {formatPercent(analytics.repeatedRatio)}</p>
+                    <p><strong>Coverage:</strong> {analytics.uniqueStates} / {analytics.possibleStates} ({formatPercent(analytics.coverage)})</p>
+                  </div>
+
+                  <div className="metric-card">
+                    <h3>Recursion tree</h3>
+                    <p><strong>Max depth:</strong> {analytics.treeMetrics.maxDepth}</p>
+                    <p><strong>Avg depth:</strong> {analytics.treeMetrics.avgDepth}</p>
+                    <p><strong>Avg branching:</strong> {analytics.treeMetrics.avgBranching}</p>
+                    <p><strong>Leaf nodes:</strong> {analytics.treeMetrics.leaves}</p>
+                    <p><strong>Critical path:</strong> {analytics.treeMetrics.criticalPathLength} states</p>
+                  </div>
+
+                  <div className="metric-card">
+                    <h3>Problem profile</h3>
+                    <p><strong>Pattern length:</strong> {analytics.problemMetrics.patternLength}</p>
+                    <p><strong>Star density:</strong> {formatPercent(analytics.problemMetrics.starDensity)}</p>
+                    <p><strong>Dot density:</strong> {formatPercent(analytics.problemMetrics.dotDensity)}</p>
+                    <p><strong>Difficulty score:</strong> {analytics.problemMetrics.difficultyScore}</p>
+                  </div>
+
+                  {result.algorithm === 'memo' ? (
+                    <div className="metric-card">
+                      <h3>Memoization</h3>
+                      <p><strong>Hits:</strong> {analytics.memoHits}</p>
+                      <p><strong>Misses:</strong> {analytics.memoMisses}</p>
+                      <p><strong>Hit rate:</strong> {formatPercent(analytics.hitRate)}</p>
+                      <p><strong>Cache utilization:</strong> {formatPercent(analytics.cacheUtilization)}</p>
+                      <p><strong>Reuse factor:</strong> {analytics.reuseFactor}</p>
+                    </div>
+                  ) : null}
+                </div>
+
+                {analytics.comparisonMetrics.speedupMemo !== null ? (
+                  <div className="comparison-grid">
+                    <div className="metric-card">
+                      <h3>Comparison</h3>
+                      <p><strong>Memo vs Backtracking:</strong> {analytics.comparisonMetrics.speedupMemo}x faster</p>
+                      <p><strong>Calls avoided:</strong> {analytics.comparisonMetrics.callsAvoided}</p>
+                      <p><strong>Call reduction:</strong> {formatPercent(analytics.comparisonMetrics.callsReduction)}</p>
+                      <p><strong>Best calls:</strong> {analytics.comparisonMetrics.winnerCalls}</p>
+                      <p><strong>Best steps:</strong> {analytics.comparisonMetrics.winnerSteps}</p>
+                    </div>
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <p>No analytics available yet.</p>
+            )}
+          </section>
 
           <ComparisonView traces={comparison} />
 
