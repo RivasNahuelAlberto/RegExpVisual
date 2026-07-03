@@ -1,6 +1,6 @@
 const rawApiUrl = import.meta.env.VITE_API_URL;
 const API_BASE = rawApiUrl ? rawApiUrl.replace(/\/+$|\s+/gu, '') : '';
-const API_URL = API_BASE || '';
+const API_URL = API_BASE || (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : '');
 
 const listeners = new Set();
 let activeRequestCount = 0;
