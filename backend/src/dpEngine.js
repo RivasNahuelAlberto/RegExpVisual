@@ -49,6 +49,22 @@ export function runBottomUp({ s, p }) {
 
   pushEvent('DP_FINISH', { i: 0, j: 0 }, 'dp finished', { variables: { value: dp[0][0] } });
 
+  const stateCounts = new Map();
+  events.forEach((event) => {
+    const state = event.state;
+    if (state && Number.isInteger(state.i) && Number.isInteger(state.j)) {
+      const key = `${state.i},${state.j}`;
+      stateCounts.set(key, (stateCounts.get(key) ?? 0) + 1);
+    }
+  });
+
+  const uniqueStates = stateCounts.size;
+  const totalStateVisits = Array.from(stateCounts.values()).reduce((sum, value) => sum + value, 0);
+  const repeatedVisits = Math.max(0, totalStateVisits - uniqueStates);
+  const possibleStates = (m + 1) * (n + 1);
+  const coverage = possibleStates ? uniqueStates / possibleStates : 0;
+  const reuseFactor = uniqueStates ? Number((totalStateVisits / uniqueStates).toFixed(2)) : 0;
+
   return {
     algorithm: 'bottomup',
     input: { s, p },
@@ -60,6 +76,12 @@ export function runBottomUp({ s, p }) {
       calls: 1,
       steps: events.length,
       depth: Math.max(m, n),
+      uniqueStates,
+      totalStateVisits,
+      repeatedVisits,
+      possibleStates,
+      coverage,
+      reuseFactor,
     },
     finalAnswer: dp[0][0],
   };

@@ -18,6 +18,10 @@ export default function ComparisonView({ traces }) {
       value: `${memo.metrics.memoHits} memo hits`,
     });
     summary.push({
+      label: 'Cache utilization',
+      value: `${memo.metrics.uniqueStates ?? 0} / ${memo.metrics.possibleStates ?? 0}`,
+    });
+    summary.push({
       label: 'Step savings (vs w/o memo)',
       value: `${backtracking.metrics.steps - memo.metrics.steps} fewer steps`,
     });

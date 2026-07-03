@@ -1,5 +1,104 @@
 import { createEvent } from '../../shared/types.js';
 
+const stateKey = ({ i, j }) => `${i},${j}`;
+
+const collectStateCounts = (events) => {
+  const stateCounts = new Map();
+  for (const event of events ?? []) {
+    const state = event.state;
+    if (state && Number.isInteger(state.i) && Number.isInteger(state.j)) {
+      const key = stateKey(state);
+      stateCounts.set(key, (stateCounts.get(key) ?? 0) + 1);
+    }
+  }
+  return stateCounts;
+};
+
+const getCallTreeMetrics = (callTree) => {
+  let nodeCount = 0;
+  let totalDepth = 0;
+  let internalNodes = 0;
+  let totalChildren = 0;
+  let leaves = 0;
+  let maxDepth = 0;
+
+  const dfs = (node, depth) => {
+    nodeCount += 1;
+    totalDepth += depth;
+    maxDepth = Math.max(maxDepth, depth);
+
+    if (!node.children.length) {
+      leaves += 1;
+      return;
+    }
+
+    internalNodes += 1;
+    totalChildren += node.children.length;
+    node.children.forEach((child) => dfs(child, depth + 1));
+  };
+
+  const criticalPathLength = (roots) => {
+    if (!roots.length) {
+      return 0;
+    }
+    const pathLength = (node) => {
+      const criticalChildren = node.children.filter((child) => child.critical);
+      if (!criticalChildren.length) {
+        return 1;
+      }
+      return 1 + Math.max(...criticalChildren.map((child) => pathLength(child)));
+    };
+
+    return Math.max(...roots.filter((root) => root.critical).map((root) => pathLength(root)), 0);
+  };
+
+  (callTree ?? []).forEach((root) => dfs(root, 1));
+
+  return {
+    nodeCount,
+    maxDepth,
+    avgDepth: nodeCount ? Number((totalDepth / nodeCount).toFixed(2)) : 0,
+    avgBranching: internalNodes ? Number((totalChildren / internalNodes).toFixed(2)) : 0,
+    leaves,
+    criticalPathLength: criticalPathLength(callTree ?? []),
+  };
+};
+
+const computeTraceMetrics = ({ events, callTree, sLength, pLength, calls, memoHits, algorithm }) => {
+  const stateCounts = collectStateCounts(events);
+  const uniqueStates = stateCounts.size;
+  const totalStateVisits = Array.from(stateCounts.values()).reduce((sum, value) => sum + value, 0);
+  const repeatedVisits = Math.max(0, totalStateVisits - uniqueStates);
+  const possibleStates = (sLength + 1) * (pLength + 1);
+  const coverage = possibleStates ? uniqueStates / possibleStates : 0;
+  const memoMisses = Math.max(0, calls - memoHits);
+  const hitRate = calls ? memoHits / calls : 0;
+  const reuseFactor = uniqueStates ? Number((totalStateVisits / uniqueStates).toFixed(2)) : 0;
+  const cacheUtilization = possibleStates ? uniqueStates / possibleStates : 0;
+  const treeMetrics = algorithm === 'bottomup' ? null : getCallTreeMetrics(callTree);
+
+  return {
+    calls,
+    steps: events.length,
+    depth: treeMetrics?.maxDepth ?? 1,
+    memoHits,
+    memoMisses,
+    hitRate,
+    reuseFactor,
+    cacheUtilization,
+    uniqueStates,
+    totalStateVisits,
+    repeatedVisits,
+    possibleStates,
+    coverage,
+    maxDepth: treeMetrics?.maxDepth ?? 1,
+    avgDepth: treeMetrics?.avgDepth ?? 1,
+    avgBranching: treeMetrics?.avgBranching ?? 0,
+    leaves: treeMetrics?.leaves ?? 0,
+    criticalPathLength: treeMetrics?.criticalPathLength ?? 0,
+  };
+};
+
 export function runAlgorithm({ s, p, algorithm = 'memo' }) {
   const events = [];
   const memo = algorithm === 'memo' ? new Map() : null;
@@ -100,18 +199,24 @@ export function runAlgorithm({ s, p, algorithm = 'memo' }) {
     markCriticalPath(root);
   });
 
+  const memoHits = events.filter((event) => event.type === 'MEMO_HIT').length;
+  const metrics = computeTraceMetrics({
+    events,
+    callTree,
+    sLength: s.length,
+    pLength: p.length,
+    calls,
+    memoHits,
+    algorithm,
+  });
+
   return {
     algorithm,
     input: { s, p },
     events,
     callTree,
     stateGraph: Array.from(new Set(events.map((event) => `${event.state.i},${event.state.j}`))),
-    metrics: {
-      calls,
-      memoHits: events.filter((event) => event.type === 'MEMO_HIT').length,
-      depth: 3,
-      steps: events.length,
-    },
+    metrics,
     finalAnswer,
   };
 }

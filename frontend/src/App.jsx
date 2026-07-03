@@ -107,10 +107,10 @@ export default function App() {
     const treeMetrics = getCallTreeMetrics(result.callTree);
     const calls = result.metrics?.calls ?? 0;
     const memoHits = result.metrics?.memoHits ?? 0;
-    const memoMisses = Math.max(0, calls - memoHits);
-    const hitRate = calls ? memoHits / calls : 0;
-    const cacheUtilization = possibleStates ? uniqueStates / possibleStates : 0;
-    const reuseFactor = uniqueStates ? Number((totalStateVisits / uniqueStates).toFixed(2)) : 0;
+    const memoMisses = result.metrics?.memoMisses ?? 0;
+    const hitRate = result.metrics?.hitRate ?? 0;
+    const cacheUtilization = result.metrics?.cacheUtilization ?? (possibleStates ? uniqueStates / possibleStates : 0);
+    const reuseFactor = result.metrics?.reuseFactor ?? (uniqueStates ? Number((totalStateVisits / uniqueStates).toFixed(2)) : 0);
     const pattern = result.input?.p ?? p;
     const starCount = (pattern.match(/\*/g) || []).length;
     const dotCount = (pattern.match(/\./g) || []).length;
