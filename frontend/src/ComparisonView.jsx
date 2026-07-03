@@ -35,12 +35,19 @@ export default function ComparisonView({ traces }) {
     { label: 'Coverage', field: 'coverage', formatter: formatPercent },
     { label: 'Memo hits', field: 'memoHits' },
     { label: 'Hit rate', field: 'hitRate', formatter: formatPercent },
+    { label: 'Reuse factor', field: 'reuseFactor' },
+  ];
+
+  const chartMetrics = [
+    { key: 'calls', label: 'Calls', variant: 'primary' },
+    { key: 'steps', label: 'Steps', variant: 'accent' },
+    { key: 'coverage', label: 'Coverage', isPercent: true },
+    { key: 'hitRate', label: 'Hit rate', isPercent: true },
   ];
 
   const maxValues = {
     calls: Math.max(1, ...traces.map((trace) => trace.metrics?.calls ?? 0)),
     steps: Math.max(1, ...traces.map((trace) => trace.metrics?.steps ?? 0)),
-    coverage: 1,
   };
 
   return (
@@ -71,39 +78,28 @@ export default function ComparisonView({ traces }) {
       </div>
 
       <div className="comparison-bar-charts">
-        <div className="chart-card">
-          <h4>Calls</h4>
-          {traces.map((trace) => {
-            const value = trace.metrics?.calls ?? 0;
-            const width = Math.round((value / maxValues.calls) * 100);
-            return (
-              <div key={trace.algorithm} className="bar-row">
-                <span className="bar-label">{trace.algorithm}</span>
-                <div className="bar-track">
-                  <div className="bar-fill" style={{ width: `${width}%` }} />
-                </div>
-                <span className="bar-value">{formatValue(value)}</span>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="chart-card">
-          <h4>Steps</h4>
-          {traces.map((trace) => {
-            const value = trace.metrics?.steps ?? 0;
-            const width = Math.round((value / maxValues.steps) * 100);
-            return (
-              <div key={trace.algorithm} className="bar-row">
-                <span className="bar-label">{trace.algorithm}</span>
-                <div className="bar-track">
-                  <div className="bar-fill accent" style={{ width: `${width}%` }} />
-                </div>
-                <span className="bar-value">{formatValue(value)}</span>
-              </div>
-            );
-          })}
-        </div>
+        {chartMetrics.map(({ key, label, variant, isPercent }) => {
+          const topValue = isPercent ? 1 : Math.max(1, ...traces.map((trace) => trace.metrics?.[key] ?? 0));
+          return (
+            <div key={key} className="chart-card">
+              <h4>{label}</h4>
+              {traces.map((trace) => {
+                const rawValue = trace.metrics?.[key] ?? 0;
+                const value = isPercent ? rawValue : rawValue;
+                const width = isPercent ? Math.round(rawValue * 100) : Math.round((rawValue / topValue) * 100);
+                return (
+                  <div key={trace.algorithm} className="bar-row">
+                    <span className="bar-label">{trace.algorithm}</span>
+                    <div className="bar-track">
+                      <div className={`bar-fill${variant === 'accent' ? ' accent' : ''}`} style={{ width: `${width}%` }} />
+                    </div>
+                    <span className="bar-value">{isPercent ? formatPercent(rawValue) : formatValue(value === 0 ? 0 : rawValue)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
       </div>
 
       <div className="comparison-grid">
