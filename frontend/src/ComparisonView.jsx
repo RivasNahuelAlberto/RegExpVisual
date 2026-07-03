@@ -32,6 +32,7 @@ export default function ComparisonView({ traces }) {
     { label: 'Calls', field: 'calls' },
     { label: 'Steps', field: 'steps' },
     { label: 'Unique states', field: 'uniqueStates' },
+    { label: 'Repeated visits', field: 'repeatedVisits' },
     { label: 'Coverage', field: 'coverage', formatter: formatPercent },
     { label: 'Memo hits', field: 'memoHits' },
     { label: 'Hit rate', field: 'hitRate', formatter: formatPercent },
@@ -125,6 +126,25 @@ export default function ComparisonView({ traces }) {
                 <p>{item.value}</p>
               </div>
             ))}
+          </div>
+        </div>
+      ) : null}
+
+      {memo ? (
+        <div className="comparison-summary">
+          <h4>Top repeated states</h4>
+          <div className="comparison-grid">
+            {(memo.metrics.repeatedStates ?? []).map((entry) => (
+              <div key={entry.state} className="comparison-card">
+                <strong>{entry.state}</strong>
+                <p>{entry.count} visits</p>
+              </div>
+            ))}
+            {!(memo.metrics.repeatedStates?.length) ? (
+              <div className="comparison-card">
+                <p>No repeated states recorded.</p>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}

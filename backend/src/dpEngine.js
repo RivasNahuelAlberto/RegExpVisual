@@ -63,6 +63,11 @@ export function runBottomUp({ s, p }) {
   const repeatedVisits = Math.max(0, totalStateVisits - uniqueStates);
   const possibleStates = (m + 1) * (n + 1);
   const coverage = possibleStates ? uniqueStates / possibleStates : 0;
+  const repeatedStates = Array.from(stateCounts.entries())
+    .map(([state, count]) => ({ state, count }))
+    .filter((entry) => entry.count > 1)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
   const reuseFactor = uniqueStates ? Number((totalStateVisits / uniqueStates).toFixed(2)) : 0;
 
   return {
@@ -79,6 +84,7 @@ export function runBottomUp({ s, p }) {
       uniqueStates,
       totalStateVisits,
       repeatedVisits,
+      repeatedStates,
       possibleStates,
       coverage,
       reuseFactor,

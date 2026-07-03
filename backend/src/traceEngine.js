@@ -69,6 +69,11 @@ const computeTraceMetrics = ({ events, callTree, sLength, pLength, calls, memoHi
   const uniqueStates = stateCounts.size;
   const totalStateVisits = Array.from(stateCounts.values()).reduce((sum, value) => sum + value, 0);
   const repeatedVisits = Math.max(0, totalStateVisits - uniqueStates);
+  const repeatedStates = Array.from(stateCounts.entries())
+    .map(([state, count]) => ({ state, count }))
+    .filter((entry) => entry.count > 1)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
   const possibleStates = (sLength + 1) * (pLength + 1);
   const coverage = possibleStates ? uniqueStates / possibleStates : 0;
   const memoMisses = Math.max(0, calls - memoHits);
@@ -89,6 +94,7 @@ const computeTraceMetrics = ({ events, callTree, sLength, pLength, calls, memoHi
     uniqueStates,
     totalStateVisits,
     repeatedVisits,
+    repeatedStates,
     possibleStates,
     coverage,
     maxDepth: treeMetrics?.maxDepth ?? 1,
