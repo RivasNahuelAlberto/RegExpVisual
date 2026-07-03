@@ -414,6 +414,69 @@ button { cursor: pointer; }
 .comparison-view {
   margin-bottom: 1rem;
 }
+.comparison-table-wrapper {
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+.comparison-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+.comparison-table th,
+.comparison-table td {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  padding: 0.85rem 0.95rem;
+  text-align: left;
+}
+.comparison-table th {
+  background: rgba(30, 41, 59, 0.95);
+}
+.comparison-bar-charts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.chart-card {
+  background: rgba(2, 6, 23, 0.75);
+  border-radius: 14px;
+  padding: 1rem;
+}
+.chart-card h4 {
+  margin-top: 0;
+  margin-bottom: 0.85rem;
+}
+.bar-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+.bar-label {
+  color: #cbd5e1;
+  text-transform: capitalize;
+}
+.bar-track {
+  position: relative;
+  background: rgba(148, 163, 184, 0.12);
+  border-radius: 999px;
+  height: 0.9rem;
+  overflow: hidden;
+}
+.bar-fill {
+  height: 100%;
+  background: #60a5fa;
+  border-radius: 999px;
+}
+.bar-fill.accent {
+  background: #f97316;
+}
+.bar-value {
+  color: #e2e8f0;
+  font-variant-numeric: tabular-nums;
+}
 .comparison-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
