@@ -148,14 +148,15 @@ const computeBranchingActivity = (callTree) => {
 };
 
 const createPatternDifficulty = (pattern) => {
-  const starCount = (pattern.match(/\*/g) || []).length;
-  const dotCount = (pattern.match(/\./g) || []).length;
+  const safePattern = typeof pattern === 'string' ? pattern : String(pattern ?? '');
+  const starCount = (safePattern.match(/\*/g) || []).length;
+  const dotCount = (safePattern.match(/\./g) || []).length;
   const branchingPoints = starCount;
 
   return {
     starCount,
     dotCount,
-    patternLength: pattern.length,
+    patternLength: safePattern.length,
     branchingPoints,
   };
 };
@@ -318,6 +319,7 @@ export function runAlgorithm({ s, p, algorithm = 'memo' }) {
     calls,
     memoHits,
     algorithm,
+    pattern: p,
   });
 
   return {
