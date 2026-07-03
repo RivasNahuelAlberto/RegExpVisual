@@ -1,6 +1,20 @@
 const rawApiUrl = import.meta.env.VITE_API_URL;
 const API_BASE = rawApiUrl ? rawApiUrl.replace(/\/+$|\s+/gu, '') : '';
-const API_URL = API_BASE || (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : '');
+
+const resolveDefaultApiUrl = () => {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  const host = window.location.hostname;
+  if (host.includes('regexpv.onrender.com')) {
+    return 'https://regexpvisual.onrender.com';
+  }
+
+  return `${window.location.protocol}//${window.location.host}`;
+};
+
+const API_URL = API_BASE || resolveDefaultApiUrl();
 
 const listeners = new Set();
 let activeRequestCount = 0;
