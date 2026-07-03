@@ -302,6 +302,54 @@ export default function App() {
             <div><strong>State graph:</strong> {result.stateGraph?.length}</div>
           </div>
 
+          <ComparisonView traces={comparison} />
+
+          <div className="content-grid">
+            <div className="timeline-panel">
+              <div className="toolbar-row">
+                <h3>Timeline</h3>
+                <div className="toolbar-controls">
+                  <button type="button" onClick={() => setCurrentStep((value) => Math.max(1, value - 1))}>Back</button>
+                  <button type="button" onClick={() => setCurrentStep((value) => Math.min(timeline.length, value + 1))}>Step</button>
+                  <button type="button" onClick={() => setIsPlaying((value) => !value)}>{isPlaying ? 'Pause' : 'Play'}</button>
+                  <button type="button" onClick={() => { setIsPlaying(false); setCurrentStep(0); }}>Restart</button>
+                </div>
+              </div>
+              <p className="step-indicator">Showing {visibleEvents.length} of {timeline.length} events</p>
+              <div className="timeline-scroll">
+                <ul className="timeline-list">
+                  {visibleEvents.map((event) => (
+                    <li key={event.id} onClick={() => setSelectedEvent(event)} className={selectedEvent?.id === event.id ? 'selected' : ''}>
+                      <span className="event-badge">{event.type}</span>
+                      <span>step {event.step}</span>
+                      <span>state ({event.state?.i}, {event.state?.j})</span>
+                      <span>{event.description}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <div className="side-panel">
+              <div className="visualizer-scroll">
+                {result.algorithm === 'bottomup' ? <DpTable dp={result.dp} dependencies={result.dependencies} order={result.order} selectedCell={selectedCell} onSelectState={handleSelectState} s={s} p={p} /> : <TreeView events={timeline} callTree={result.callTree} activeStateKey={selectedCell} onSelectState={handleSelectState} />}
+              </div>
+              <div className="inspector-card">
+                <h3>Inspector</h3>
+                {selectedEvent ? (
+                  <>
+                    <p><strong>Type:</strong> {selectedEvent.type}</p>
+                    <p><strong>State:</strong> ({selectedEvent.state?.i}, {selectedEvent.state?.j})</p>
+                    <p><strong>Description:</strong> {selectedEvent.description}</p>
+                    <p><strong>Variables:</strong> {JSON.stringify(selectedEvent.variables)}</p>
+                  </>
+                ) : (
+                  <p>Select an event from the timeline.</p>
+                )}
+              </div>
+            </div>
+          </div>
+
           <section className="panel analytics-panel">
             <h2>Algorithm Analytics</h2>
             {analytics ? (
@@ -361,54 +409,6 @@ export default function App() {
               <p>No analytics available yet.</p>
             )}
           </section>
-
-          <ComparisonView traces={comparison} />
-
-          <div className="content-grid">
-            <div className="timeline-panel">
-              <div className="toolbar-row">
-                <h3>Timeline</h3>
-                <div className="toolbar-controls">
-                  <button type="button" onClick={() => setCurrentStep((value) => Math.max(1, value - 1))}>Back</button>
-                  <button type="button" onClick={() => setCurrentStep((value) => Math.min(timeline.length, value + 1))}>Step</button>
-                  <button type="button" onClick={() => setIsPlaying((value) => !value)}>{isPlaying ? 'Pause' : 'Play'}</button>
-                  <button type="button" onClick={() => { setIsPlaying(false); setCurrentStep(0); }}>Restart</button>
-                </div>
-              </div>
-              <p className="step-indicator">Showing {visibleEvents.length} of {timeline.length} events</p>
-              <div className="timeline-scroll">
-                <ul className="timeline-list">
-                  {visibleEvents.map((event) => (
-                    <li key={event.id} onClick={() => setSelectedEvent(event)} className={selectedEvent?.id === event.id ? 'selected' : ''}>
-                      <span className="event-badge">{event.type}</span>
-                      <span>step {event.step}</span>
-                      <span>state ({event.state?.i}, {event.state?.j})</span>
-                      <span>{event.description}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-
-            <div className="side-panel">
-              <div className="visualizer-scroll">
-                {result.algorithm === 'bottomup' ? <DpTable dp={result.dp} dependencies={result.dependencies} order={result.order} selectedCell={selectedCell} onSelectState={handleSelectState} s={s} p={p} /> : <TreeView events={timeline} callTree={result.callTree} activeStateKey={selectedCell} onSelectState={handleSelectState} />}
-              </div>
-              <div className="inspector-card">
-                <h3>Inspector</h3>
-                {selectedEvent ? (
-                  <>
-                    <p><strong>Type:</strong> {selectedEvent.type}</p>
-                    <p><strong>State:</strong> ({selectedEvent.state?.i}, {selectedEvent.state?.j})</p>
-                    <p><strong>Description:</strong> {selectedEvent.description}</p>
-                    <p><strong>Variables:</strong> {JSON.stringify(selectedEvent.variables)}</p>
-                  </>
-                ) : (
-                  <p>Select an event from the timeline.</p>
-                )}
-              </div>
-            </div>
-          </div>
         </section>
         </>
       ) : null}
