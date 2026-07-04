@@ -267,9 +267,9 @@ export function runAlgorithm({ s, p, algorithm = 'memo' }) {
 
     if (hasStar) {
       pushEvent('STAR_FOUND', { i, j }, 'star found', { variables: { patternChar } });
-      const skipStar = isMatch(i, j + 2);
-      const consumeStar = i < s.length && (patternChar === '.' || patternChar === s[i]) && isMatch(i + 1, j);
-      result = skipStar || consumeStar;
+      //const skipStar = isMatch(i, j + 2);
+      //const consumeStar = i < s.length && (patternChar === '.' || patternChar === s[i]) && isMatch(i + 1, j);
+      result = isMatch(i, j + 2) || (i < s.length && (patternChar === '.' || patternChar === s[i]) && isMatch(i + 1, j));
     } else if (i < s.length && (patternChar === '.' || patternChar === s[i])) {
       pushEvent('COMPARE', { i, j }, 'character matches', { variables: { patternChar, char: s[i] } });
       result = isMatch(i + 1, j + 1);
