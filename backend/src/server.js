@@ -118,7 +118,8 @@ app.get('/api/run-stream', (req, res) => {
         error: String(error),
       });
       if (!clientDisconnected) {
-        res.write(`data: ${JSON.stringify({ type: 'ERROR', error: String(error) })}\n\n`);
+        const details = error?.details ?? null;
+        res.write(`data: ${JSON.stringify({ type: 'ERROR', error: String(error), details })}\n\n`);
         res.end();
       }
     });

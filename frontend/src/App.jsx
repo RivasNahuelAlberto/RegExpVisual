@@ -331,6 +331,28 @@ export default function App() {
           metrics: null,
           finalAnswer: null,
         };
+        let settled = false;
+
+        const finishStream = ({ error = null, details = null } = {}) => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          setLoading(false);
+          setStreamStatus('error');
+          if (error) {
+            setError(String(error));
+          }
+          if (details) {
+            setLimitModal({
+              title: 'Execution stopped for size limits',
+              message: buildLimitMessage({ algorithm, details }),
+            });
+          }
+          source.close();
+          eventSourceRef.current = null;
+          resolve();
+        };
 
         setStreamStatus('connecting');
 
@@ -340,12 +362,9 @@ export default function App() {
         };
 
         source.onerror = () => {
-          setError('Stream connection failed. Falling back to full trace.');
-          setStreamStatus('error');
-          source.close();
-          eventSourceRef.current = null;
-          setLoading(false);
-          resolve();
+          finishStream({
+            error: 'The streaming connection was interrupted before the trace could be completed.',
+          });
         };
 
         source.onmessage = (event) => {
@@ -386,26 +405,18 @@ export default function App() {
             if (payload.type === 'COMPLETE') {
               setStreamStatus('complete');
               setProgressMessage('Trace complete.');
-              setLoading(false);
-              source.close();
-              eventSourceRef.current = null;
-              resolve();
+              if (!settled) {
+                settled = true;
+                setLoading(false);
+                source.close();
+                eventSourceRef.current = null;
+                resolve();
+              }
             }
             if (payload.type === 'ERROR') {
               const parsedError = payload.error ? String(payload.error) : 'The backend stopped the execution.';
               const parsedDetails = payload.details ?? null;
-              setError(parsedError);
-              setStreamStatus('error');
-              setLoading(false);
-              if (parsedDetails) {
-                setLimitModal({
-                  title: 'Execution stopped for size limits',
-                  message: buildLimitMessage({ algorithm, details: parsedDetails }),
-                });
-              }
-              source.close();
-              eventSourceRef.current = null;
-              resolve();
+              finishStream({ error: parsedError, details: parsedDetails });
             }
           } catch (parseError) {
             console.error('Failed to parse SSE payload', parseError);
