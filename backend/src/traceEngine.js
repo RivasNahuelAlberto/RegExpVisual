@@ -152,6 +152,35 @@ const computeBranchingActivity = (callTree) => {
     .map(([level, children]) => ({ level, children }));
 };
 
+const buildCoreMetrics = ({ calls, steps, memoHits, stateCounts, resolvedStateCount = 0, possibleStates = 0, maxDepth = 1, depth = maxDepth }) => {
+  const uniqueStates = stateCounts?.size ?? 0;
+  const totalStateVisits = Array.from(stateCounts?.values?.() ?? []).reduce((sum, value) => sum + value, 0);
+  const repeatedVisits = Math.max(0, totalStateVisits - uniqueStates);
+  const memoMisses = Math.max(0, calls - memoHits);
+  const hitRate = calls ? memoHits / calls : 0;
+  const reuseFactor = uniqueStates ? Number((totalStateVisits / uniqueStates).toFixed(2)) : 0;
+  const coverage = possibleStates ? uniqueStates / possibleStates : 0;
+  const reusePercentage = resolvedStateCount ? memoHits / resolvedStateCount : 0;
+
+  return {
+    calls,
+    steps,
+    memoHits,
+    memoMisses,
+    hitRate,
+    reuseFactor,
+    uniqueStates,
+    totalStateVisits,
+    repeatedVisits,
+    possibleStates,
+    coverage,
+    resolvedStates: resolvedStateCount,
+    reusePercentage,
+    maxDepth,
+    depth,
+  };
+};
+
 const createPatternDifficulty = (pattern) => {
   const safePattern = typeof pattern === 'string' ? pattern : String(pattern ?? '');
   const starCount = (safePattern.match(/\*/g) || []).length;
@@ -168,45 +197,35 @@ const createPatternDifficulty = (pattern) => {
 
 const computeTraceMetrics = ({ events, stateCounts, analyticsTimeline, callTree, sLength, pLength, calls, memoHits, algorithm, pattern, resolvedStateCount = 0 }) => {
   const mergedStateCounts = stateCounts || collectStateCounts(events);
-  const uniqueStates = mergedStateCounts.size;
-  const totalStateVisits = Array.from(mergedStateCounts.values()).reduce((sum, value) => sum + value, 0);
-  const repeatedVisits = Math.max(0, totalStateVisits - uniqueStates);
   const repeatedStates = Array.from(mergedStateCounts.entries())
     .map(([state, count]) => ({ state, count }))
     .filter((entry) => entry.count > 1)
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
   const possibleStates = (sLength + 1) * (pLength + 1);
-  const coverage = possibleStates ? uniqueStates / possibleStates : 0;
-  const memoMisses = Math.max(0, calls - memoHits);
-  const hitRate = calls ? memoHits / calls : 0;
-  const reuseFactor = uniqueStates ? Number((totalStateVisits / uniqueStates).toFixed(2)) : 0;
-  const cacheUtilization = possibleStates ? uniqueStates / possibleStates : 0;
+  const cacheUtilization = possibleStates ? (mergedStateCounts.size || 0) / possibleStates : 0;
   const treeMetrics = algorithm === 'bottomup' ? null : getCallTreeMetrics(callTree);
   const finalAnalyticsTimeline = analyticsTimeline || buildAnalyticsTimeline({ events, possibleStates, algorithm });
   const branchingActivity = algorithm === 'bottomup' ? [] : computeBranchingActivity(callTree);
   const patternDifficulty = createPatternDifficulty(pattern);
-
-  return {
+  const baseMetrics = buildCoreMetrics({
     calls,
     steps: events ? events.length : finalAnalyticsTimeline.calls.length,
-    depth: treeMetrics?.maxDepth ?? 1,
     memoHits,
-    memoMisses,
-    hitRate,
-    reuseFactor,
-    cacheUtilization,
-    uniqueStates,
-    totalStateVisits,
-    repeatedVisits,
-    repeatedStates,
+    stateCounts: mergedStateCounts,
+    resolvedStateCount,
     possibleStates,
-    coverage,
     maxDepth: treeMetrics?.maxDepth ?? 1,
+    depth: treeMetrics?.maxDepth ?? 1,
+  });
+
+  return {
+    ...baseMetrics,
+    reuseFactor: baseMetrics.reuseFactor,
+    cacheUtilization,
+    repeatedStates,
     avgDepth: treeMetrics?.avgDepth ?? 1,
     avgBranching: treeMetrics?.avgBranching ?? 0,
-    resolvedStates: resolvedStateCount,
-    reusePercentage: resolvedStateCount ? memoHits / resolvedStateCount : 0,
     leaves: treeMetrics?.leaves ?? 0,
     criticalPathLength: treeMetrics?.criticalPathLength ?? 0,
     analytics: {
@@ -246,24 +265,16 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
     const totalStateVisits = Array.from(stateCounts.values()).reduce((sum, value) => sum + value, 0);
     const repeatedVisits = Math.max(0, totalStateVisits - uniqueStates);
     const possibleStates = (s.length + 1) * (p.length + 1);
-    const coverage = possibleStates ? uniqueStates / possibleStates : 0;
-    const reuseFactor = uniqueStates ? Number((totalStateVisits / uniqueStates).toFixed(2)) : 0;
-    const metrics = {
+    const metrics = buildCoreMetrics({
       calls,
       steps: step,
       memoHits: memoHitCount,
-      memoMisses: Math.max(0, calls - memoHitCount),
-      uniqueStates,
-      resolvedStates: resolvedStateCount,
-      reusePercentage: resolvedStateCount ? memoHitCount / resolvedStateCount : 0,
-      totalStateVisits,
-      repeatedVisits,
+      stateCounts: new Map(Array.from(stateCounts.entries())),
+      resolvedStateCount,
       possibleStates,
-      coverage,
-      reuseFactor,
       maxDepth: maxDepthReached,
       depth: maxDepthReached,
-    };
+    });
     const stateGraph = Array.from(new Set(currentEvents.map((event) => `${event.state?.i ?? ''},${event.state?.j ?? ''}`).filter(Boolean)));
     return {
       algorithm,
