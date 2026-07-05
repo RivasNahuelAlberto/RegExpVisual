@@ -68,9 +68,9 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison }) {
     { metric: 'Calls', backtracking: 0, memo: 0, bottomup: 0 },
     { metric: 'Steps', backtracking: 0, memo: 0, bottomup: 0 },
     { metric: 'Redundancy', backtracking: 0, memo: 0, bottomup: 0 },
-    { metric: 'Coverage', backtracking: 0, memo: 0, bottomup: 0 },
-    { metric: 'Memory', backtracking: 0, memo: 0, bottomup: 0 },
-    { metric: 'Memo Efficiency', backtracking: 0, memo: 0, bottomup: 0 },
+    { metric: 'Coverage (%)', backtracking: 0, memo: 0, bottomup: 0 },
+    { metric: 'Memory (reuse)', backtracking: 0, memo: 0, bottomup: 0 },
+    { metric: 'Efficiency (%)', backtracking: 0, memo: 0, bottomup: 0 },
   ];
 
   if (comparisonMetrics.length) {
@@ -78,24 +78,36 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison }) {
       acc[trace.algorithm] = trace;
       return acc;
     }, {});
-    radarData[0].backtracking = byAlgorithm.backtracking?.calls ?? 0;
-    radarData[0].memo = byAlgorithm.memo?.calls ?? 0;
-    radarData[0].bottomup = byAlgorithm.bottomup?.calls ?? 0;
-    radarData[1].backtracking = byAlgorithm.backtracking?.steps ?? 0;
-    radarData[1].memo = byAlgorithm.memo?.steps ?? 0;
-    radarData[1].bottomup = byAlgorithm.bottomup?.steps ?? 0;
-    radarData[2].backtracking = byAlgorithm.backtracking?.repeatedVisits ?? 0;
-    radarData[2].memo = byAlgorithm.memo?.repeatedVisits ?? 0;
-    radarData[2].bottomup = byAlgorithm.bottomup?.repeatedVisits ?? 0;
-    radarData[3].backtracking = byAlgorithm.backtracking?.coverage ?? 0;
-    radarData[3].memo = byAlgorithm.memo?.coverage ?? 0;
-    radarData[3].bottomup = byAlgorithm.bottomup?.coverage ?? 0;
-    radarData[4].backtracking = byAlgorithm.backtracking?.reuseFactor ?? 0;
-    radarData[4].memo = byAlgorithm.memo?.reuseFactor ?? 0;
-    radarData[4].bottomup = byAlgorithm.bottomup?.reuseFactor ?? 0;
-    radarData[5].backtracking = byAlgorithm.backtracking?.hitRate ?? 0;
-    radarData[5].memo = byAlgorithm.memo?.hitRate ?? 0;
-    radarData[5].bottomup = byAlgorithm.bottomup?.hitRate ?? 0;
+    
+    // Calculate max values for normalization
+    const maxCalls = Math.max(...comparisonMetrics.map((t) => t.calls || 0), 1);
+    const maxSteps = Math.max(...comparisonMetrics.map((t) => t.steps || 0), 1);
+    const maxRedundancy = Math.max(...comparisonMetrics.map((t) => t.redundancy || 0), 1);
+    
+    // Normalize and populate radarData
+    radarData[0].backtracking = Math.round((byAlgorithm.backtracking?.calls ?? 0) / maxCalls * 100);
+    radarData[0].memo = Math.round((byAlgorithm.memo?.calls ?? 0) / maxCalls * 100);
+    radarData[0].bottomup = Math.round((byAlgorithm.bottomup?.calls ?? 0) / maxCalls * 100);
+    
+    radarData[1].backtracking = Math.round((byAlgorithm.backtracking?.steps ?? 0) / maxSteps * 100);
+    radarData[1].memo = Math.round((byAlgorithm.memo?.steps ?? 0) / maxSteps * 100);
+    radarData[1].bottomup = Math.round((byAlgorithm.bottomup?.steps ?? 0) / maxSteps * 100);
+    
+    radarData[2].backtracking = Math.round((byAlgorithm.backtracking?.redundancy ?? 0) / maxRedundancy * 100);
+    radarData[2].memo = Math.round((byAlgorithm.memo?.redundancy ?? 0) / maxRedundancy * 100);
+    radarData[2].bottomup = Math.round((byAlgorithm.bottomup?.redundancy ?? 0) / maxRedundancy * 100);
+    
+    radarData[3].backtracking = Math.round((byAlgorithm.backtracking?.coverage ?? 0) * 100);
+    radarData[3].memo = Math.round((byAlgorithm.memo?.coverage ?? 0) * 100);
+    radarData[3].bottomup = Math.round((byAlgorithm.bottomup?.coverage ?? 0) * 100);
+    
+    radarData[4].backtracking = Math.round((byAlgorithm.backtracking?.memory ?? 0) / 5 * 100);
+    radarData[4].memo = Math.round((byAlgorithm.memo?.memory ?? 0) / 5 * 100);
+    radarData[4].bottomup = Math.round((byAlgorithm.bottomup?.memory ?? 0) / 5 * 100);
+    
+    radarData[5].backtracking = Math.round((byAlgorithm.backtracking?.memoEfficiency ?? 0) * 100);
+    radarData[5].memo = Math.round((byAlgorithm.memo?.memoEfficiency ?? 0) * 100);
+    radarData[5].bottomup = Math.round((byAlgorithm.bottomup?.memoEfficiency ?? 0) * 100);
   }
 
   const patternDifficultyData = [

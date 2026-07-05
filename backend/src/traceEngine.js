@@ -158,7 +158,7 @@ const buildCoreMetrics = ({ calls, steps, memoHits, stateCounts, resolvedStateCo
   const repeatedVisits = Math.max(0, totalStateVisits - uniqueStates);
   const memoMisses = Math.max(0, calls - memoHits);
   const hitRate = algorithm === 'memo' && calls ? memoHits / calls : 0;
-  const reuseFactor = algorithm === 'memo' && uniqueStates ? Number((totalStateVisits / uniqueStates).toFixed(2)) : 0;
+  const reuseFactor = uniqueStates ? Number((totalStateVisits / uniqueStates).toFixed(2)) : 0;
   const coverage = possibleStates ? uniqueStates / possibleStates : 0;
   const reusePercentage = algorithm === 'memo' && resolvedStateCount ? memoHits / resolvedStateCount : 0;
 
