@@ -152,15 +152,15 @@ const computeBranchingActivity = (callTree) => {
     .map(([level, children]) => ({ level, children }));
 };
 
-const buildCoreMetrics = ({ calls, steps, memoHits, stateCounts, resolvedStateCount = 0, possibleStates = 0, maxDepth = 1, depth = maxDepth }) => {
+const buildCoreMetrics = ({ calls, steps, memoHits, stateCounts, resolvedStateCount = 0, possibleStates = 0, maxDepth = 1, depth = maxDepth, algorithm = 'backtracking' }) => {
   const uniqueStates = stateCounts?.size ?? 0;
   const totalStateVisits = Array.from(stateCounts?.values?.() ?? []).reduce((sum, value) => sum + value, 0);
   const repeatedVisits = Math.max(0, totalStateVisits - uniqueStates);
   const memoMisses = Math.max(0, calls - memoHits);
-  const hitRate = calls ? memoHits / calls : 0;
-  const reuseFactor = uniqueStates ? Number((totalStateVisits / uniqueStates).toFixed(2)) : 0;
+  const hitRate = algorithm === 'memo' && calls ? memoHits / calls : 0;
+  const reuseFactor = algorithm === 'memo' && uniqueStates ? Number((totalStateVisits / uniqueStates).toFixed(2)) : 0;
   const coverage = possibleStates ? uniqueStates / possibleStates : 0;
-  const reusePercentage = resolvedStateCount ? memoHits / resolvedStateCount : 0;
+  const reusePercentage = algorithm === 'memo' && resolvedStateCount ? memoHits / resolvedStateCount : 0;
 
   return {
     calls,
@@ -203,7 +203,7 @@ const computeTraceMetrics = ({ events, stateCounts, analyticsTimeline, callTree,
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
   const possibleStates = (sLength + 1) * (pLength + 1);
-  const cacheUtilization = possibleStates ? (mergedStateCounts.size || 0) / possibleStates : 0;
+  const cacheUtilization = algorithm === 'memo' ? ((mergedStateCounts.size || 0) / possibleStates) : 0;
   const treeMetrics = algorithm === 'bottomup' ? null : getCallTreeMetrics(callTree);
   const finalAnalyticsTimeline = analyticsTimeline || buildAnalyticsTimeline({ events, possibleStates, algorithm });
   const branchingActivity = algorithm === 'bottomup' ? [] : computeBranchingActivity(callTree);
@@ -213,10 +213,11 @@ const computeTraceMetrics = ({ events, stateCounts, analyticsTimeline, callTree,
     steps: events ? events.length : finalAnalyticsTimeline.calls.length,
     memoHits,
     stateCounts: mergedStateCounts,
-    resolvedStateCount,
+    resolvedStateCount: algorithm === 'memo' ? resolvedStateCount : 0,
     possibleStates,
     maxDepth: treeMetrics?.maxDepth ?? 1,
     depth: treeMetrics?.maxDepth ?? 1,
+    algorithm,
   });
 
   return {
@@ -261,7 +262,7 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
   const buildSnapshot = (finalAnswerValue = null, completed = false) => {
     const currentEvents = events.slice(-MAX_STREAM_EVENTS);
     const uniqueStates = stateCounts.size;
-    const resolvedStateCount = resolvedStates.size;
+    const resolvedStateCount = algorithm === 'memo' ? resolvedStates.size : 0;
     const totalStateVisits = Array.from(stateCounts.values()).reduce((sum, value) => sum + value, 0);
     const repeatedVisits = Math.max(0, totalStateVisits - uniqueStates);
     const possibleStates = (s.length + 1) * (p.length + 1);
@@ -274,6 +275,7 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
       possibleStates,
       maxDepth: maxDepthReached,
       depth: maxDepthReached,
+      algorithm,
     });
     const stateGraph = Array.from(new Set(currentEvents.map((event) => `${event.state?.i ?? ''},${event.state?.j ?? ''}`).filter(Boolean)));
     return {
@@ -359,7 +361,9 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
     }
 
     pushEvent('CALL', { i, j }, 'call', { variables: { key } });
-    resolvedStates.add(key);
+    if (memo) {
+      resolvedStates.add(key);
+    }
 
     if (j === p.length) {
       const result = i === s.length;
@@ -456,7 +460,7 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
     memoHits: memoHitCount,
     algorithm,
     pattern: p,
-    resolvedStateCount: resolvedStates.size,
+    resolvedStateCount: algorithm === 'memo' ? resolvedStates.size : 0,
   });
 
   const result = {
