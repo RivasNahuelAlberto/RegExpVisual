@@ -164,7 +164,7 @@ export default function App() {
   const [currentStep, setCurrentStep] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [comparison, setComparison] = useState([]);
-  const [useStream, setUseStream] = useState(true);
+  const useStream = false;
   const [streamStatus, setStreamStatus] = useState('idle');
   const [progressMessage, setProgressMessage] = useState('');
   const [limitModal, setLimitModal] = useState(null);
@@ -495,19 +495,6 @@ export default function App() {
           {loading ? 'Running…' : 'Run trace'}
         </button>
       </form>
-
-      <div className="panel streaming-panel">
-        <label className="streaming-toggle">
-          <input type="checkbox" checked={useStream} onChange={(e) => setUseStream(e.target.checked)} />
-          Use streaming execution (SSE)
-        </label>
-        {useStream ? (
-          <div className="streaming-status">
-            <span>Status: {streamStatus}</span>
-            <span>{progressMessage}</span>
-          </div>
-        ) : null}
-      </div>
 
       {error ? <div className="error">{error}</div> : null}
 
