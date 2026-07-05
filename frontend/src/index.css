@@ -642,6 +642,13 @@ button { cursor: pointer; }
   line-height: 1.5;
 }
 
+.metric-help-example {
+  margin-top: 0.45rem;
+  color: #f8fafc;
+  font-size: 0.94rem;
+  line-height: 1.5;
+}
+
 .comparison-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

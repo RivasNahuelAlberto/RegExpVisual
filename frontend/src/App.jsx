@@ -69,76 +69,114 @@ const getCallTreeMetrics = (callTree) => {
 
 const formatPercent = (value) => `${Math.round(value * 100)}%`;
 
-const metricHelpContent = {
-  stateExploration: {
-    title: 'State exploration',
-    intro: 'These metrics explain how much of the search space the algorithm actually visited and whether it revisited states unnecessarily.',
-    items: [
-      { name: 'Unique states', description: 'Counts distinct (i, j) states reached during execution.', how: 'The backend collects every state key from the trace and deduplicates it after the run.' },
-      { name: 'Repeated visits', description: 'Shows how often the same state was reached again after it had already been seen.', how: 'Each state occurrence is counted from the event stream and the repeated counts are derived from the total visits minus the unique states.' },
-      { name: 'Repeated ratio', description: 'Measures how much of the work was redundant.', how: 'It is computed as repeated visits divided by total visits.' },
-      { name: 'Coverage', description: 'Shows what fraction of the complete state space was actually explored.', how: 'It uses the formula visited states divided by the maximum possible states, (m + 1) × (n + 1).' },
-    ],
-  },
-  recursionTree: {
-    title: 'Recursion tree',
-    intro: 'These values describe the shape of the recursive exploration and how deeply the search expanded.',
-    items: [
-      { name: 'Max depth', description: 'Records the deepest recursion level reached during execution.', how: 'It is derived from the maximum nesting level observed while the call tree is built.' },
-      { name: 'Avg depth', description: 'Reflects the average nesting level across all recursive calls.', how: 'It is computed from the total depth of all nodes divided by the number of nodes in the call tree.' },
-      { name: 'Avg branching', description: 'Measures how many children each internal recursive call generated on average.', how: 'The backend divides total children by the number of internal nodes.' },
-      { name: 'Leaf nodes', description: 'Shows how many recursive calls ended without creating more children.', how: 'Leaf count comes directly from the terminal nodes in the call tree.' },
-      { name: 'Critical path', description: 'Indicates the length of the path that determines the final successful outcome.', how: 'The backend marks the critical path from the successful branches and counts the states in that path.' },
-    ],
-  },
-  problemProfile: {
-    title: 'Problem profile',
-    intro: 'These values summarize the structure of the input pattern so the algorithmic complexity is easier to interpret.',
-    items: [
-      { name: 'Pattern length', description: 'Shows the length of the regex pattern supplied to the algorithm.', how: 'It is taken directly from the input pattern string.' },
-      { name: 'Star density', description: 'Measures how often the * operator appears in the pattern.', how: 'It is calculated as the count of * characters divided by the pattern length.' },
-      { name: 'Dot density', description: 'Measures how often the . wildcard appears in the pattern.', how: 'It is calculated as the count of . characters divided by the pattern length.' },
-      { name: 'Difficulty score', description: 'Provides a rough heuristic for how hard the pattern is likely to be to explore.', how: 'It is derived from the pattern structure, including star density, dot density, and overall length.' },
-    ],
-  },
-  memoization: {
-    title: 'Memoization',
-    intro: 'These metrics make the benefit of caching visible by distinguishing successful reuse from wasted recomputation.',
-    items: [
-      { name: 'Hits', description: 'Counts how many times the algorithm reused a cached state.', how: 'Each memo hit event emitted by the backend increments this counter.' },
-      { name: 'Misses', description: 'Counts how many states still had to be solved from scratch.', how: 'It is computed as total calls minus memo hits.' },
-      { name: 'Resolved states', description: 'Shows how many distinct states were actually solved and stored.', how: 'The backend tracks the set of resolved state keys and reports its size.' },
-      { name: 'Reuse percentage', description: 'Shows how much of the resolved state space was reused after being stored.', how: 'It is computed as memo hits divided by resolved states.' },
-      { name: 'Hit rate', description: 'Measures how effective the cache was during the run.', how: 'It is computed as memo hits divided by memo hits plus memo misses.' },
-      { name: 'Cache utilization', description: 'Shows how much of the available cache space was actually used.', how: 'It compares the number of stored states with the total possible state-space positions.' },
-      { name: 'Reuse factor', description: 'Shows how many times each cached state was reused on average.', how: 'It is calculated as total state visits divided by the number of unique states.' },
-    ],
-  },
-  comparison: {
-    title: 'Comparison',
-    intro: 'These values summarize how memoization changes the amount of work required compared with the non-memoized version.',
-    items: [
-      { name: 'Memo vs Backtracking', description: 'Shows the relative speedup in terms of call count.', how: 'It is computed as backtracking calls divided by memoized calls.' },
-      { name: 'Calls avoided', description: 'Shows how many recursive calls were skipped thanks to memoization.', how: 'It is derived from the difference between the two algorithms’ call counts.' },
-      { name: 'Call reduction', description: 'Expresses the same improvement as a percentage.', how: 'It is computed as the share of calls removed relative to the backtracking baseline.' },
-      { name: 'Best calls', description: 'Highlights which algorithm used the fewest calls for the current input.', how: 'It is selected by comparing the call metrics across the available traces.' },
-      { name: 'Best steps', description: 'Highlights which algorithm required the fewest execution steps.', how: 'It is selected by comparing the step metrics across the available traces.' },
-    ],
-  },
-  visualAnalytics: {
-    title: 'Visual analytics',
-    intro: 'The charts complement the numeric metrics by showing how the execution evolves over time.',
-    items: [
-      { name: 'Calls and unique states', description: 'Shows whether the algorithm is doing a lot of work without discovering many new states.', how: 'The frontend renders the backend timeline for cumulative calls and discovered states side by side.' },
-      { name: 'Memo hits', description: 'Shows when the cache begins to pay off during execution.', how: 'The timeline is built from the cumulative memo-hit events emitted by the backend.' },
-      { name: 'Coverage and depth', description: 'Shows how quickly the search space becomes covered and how deeply the recursion grows.', how: 'These values are computed from the trace events and the current recursion depth recorded during execution.' },
-      { name: 'Branching activity', description: 'Highlights where the search tree expands the most.', how: 'The backend derives branching data from the recursive call tree.' },
-    ],
-  },
+const buildMetricHelpContent = ({ analytics, input, algorithm, comparison }) => {
+  const pattern = typeof input?.p === 'string' ? input.p : '';
+  const text = typeof input?.s === 'string' ? input.s : '';
+  const starCount = (pattern.match(/\*/g) || []).length;
+  const dotCount = (pattern.match(/\./g) || []).length;
+  const patternLength = pattern.length;
+  const starDensity = patternLength ? starCount / patternLength : 0;
+  const dotDensity = patternLength ? dotCount / patternLength : 0;
+  
+  // Classify pattern by characteristics
+  const classifyPattern = () => {
+    if (patternLength === 0) return 'empty';
+    if (patternLength <= 5 && starCount === 0 && dotCount === 0) return 'trivial';
+    if (starDensity > 0.4 || dotDensity > 0.35) return 'highly-flexible';
+    if (starDensity > 0.2 || dotDensity > 0.15) return 'flexible';
+    if (starDensity > 0.1 || dotDensity > 0.08) return 'moderate';
+    return 'restrictive';
+  };
+  
+  const patternType = classifyPattern();
+  const patternDescription = {
+    trivial: 'a simple literal pattern',
+    restrictive: 'a restrictive pattern with few wildcards',
+    moderate: 'a moderately flexible pattern',
+    flexible: 'a flexible pattern with significant wildcards',
+    'highly-flexible': 'a highly flexible pattern with many wildcards and alternatives',
+    empty: 'an empty pattern',
+  }[patternType] || 'a pattern';
+  
+  const currentAlgorithmLabel = algorithm === 'memo' ? 'memoization' : algorithm === 'bottomup' ? 'bottom-up DP' : 'backtracking';
+  const algorithmDescriptor = algorithm === 'memo' ? 'memoized backtracking' : algorithm === 'bottomup' ? 'bottom-up dynamic programming' : 'backtracking';
+  const memoTrace = comparison?.find((trace) => trace.algorithm === 'memo');
+  const backtrackingTrace = comparison?.find((trace) => trace.algorithm === 'backtracking');
+  const comparisonExample = memoTrace && backtrackingTrace
+    ? `For this input, backtracking used ${backtrackingTrace.metrics?.calls ?? 0} calls while ${currentAlgorithmLabel} used ${memoTrace.metrics?.calls ?? 0}.`
+    : 'The comparison section will update as soon as both traces are available.';
+
+  return {
+    stateExploration: {
+      title: 'State exploration',
+      intro: 'These metrics explain how much of the search space the algorithm actually visited and whether it revisited states unnecessarily.',
+      items: [
+        { name: 'Unique states', description: 'Counts distinct (i, j) states reached during execution.', how: 'The backend collects every state key from the trace and deduplicates it after the run.', example: analytics ? `For your ${patternDescription} pattern, the ${algorithmDescriptor} algorithm discovered ${analytics.uniqueStates} unique states from ${analytics.possibleStates} possible positions.` : `With ${patternDescription}, the search explores a subset of the ${text.length + 1} × ${pattern.length + 1} possible state space.` },
+        { name: 'Repeated visits', description: 'Shows how often the same state was reached again after it had already been seen.', how: 'Each state occurrence is counted from the event stream and the repeated counts are derived from the total visits minus the unique states.', example: analytics ? `Your ${patternDescription} pattern generated ${analytics.repeatedVisits} repeated visits in the ${algorithmDescriptor} trace.` : `Repeated visits occur when ${patternType === 'highly-flexible' ? 'wildcards cause the search to revisit many states' : 'the search backtracks to explore alternatives'}.` },
+        { name: 'Repeated ratio', description: 'Measures how much of the work was redundant.', how: 'It is computed as repeated visits divided by total visits.', example: analytics ? `The repeated ratio for your ${patternDescription} pattern is ${formatPercent(analytics.repeatedRatio)} — ${parseFloat(analytics.repeatedRatio) > 0.5 ? 'indicating significant redundant work' : 'suggesting efficient exploration'}.` : `For ${patternDescription}, expect ${patternType === 'highly-flexible' ? 'high redundancy' : patternType === 'flexible' ? 'moderate redundancy' : 'low redundancy'}.` },
+        { name: 'Coverage', description: 'Shows what fraction of the complete state space was actually explored.', how: 'It uses the formula visited states divided by the maximum possible states, (m + 1) × (n + 1).', example: analytics ? `Your ${patternDescription} pattern achieved ${formatPercent(analytics.coverage)} coverage for the ${algorithmDescriptor} run.` : `Coverage depends on how much of the text the ${patternType === 'restrictive' ? 'restrictive pattern' : 'flexible pattern'} can match.` },
+      ],
+    },
+    recursionTree: {
+      title: 'Recursion tree',
+      intro: 'These values describe the shape of the recursive exploration and how deeply the search expanded.',
+      items: [
+        { name: 'Max depth', description: 'Records the deepest recursion level reached during execution.', how: 'It is derived from the maximum nesting level observed while the call tree is built.', example: analytics ? `Your ${patternDescription} pattern reached a maximum recursion depth of ${analytics.treeMetrics?.maxDepth ?? 0} with the ${algorithmDescriptor} algorithm.` : `For ${patternDescription}, depth grows with ${patternType === 'highly-flexible' ? 'the many branching paths created by wildcards' : patternType === 'flexible' ? 'the choices introduced by wildcards' : 'the length of the search space'}.` },
+        { name: 'Avg depth', description: 'Reflects the average nesting level across all recursive calls.', how: 'It is computed from the total depth of all nodes divided by the number of nodes in the call tree.', example: analytics ? `The average recursion depth for your ${patternDescription} pattern is ${analytics.treeMetrics?.avgDepth ?? 0}.` : `Average depth indicates ${patternType === 'restrictive' ? 'relatively shallow search' : 'moderate to deep exploration'} for this type of pattern.` },
+        { name: 'Avg branching', description: 'Measures how many children each internal recursive call generated on average.', how: 'The backend divides total children by the number of internal nodes.', example: analytics ? `Your ${patternDescription} pattern creates an average branching factor of ${analytics.treeMetrics?.avgBranching ?? 0} — this ${parseFloat(analytics.treeMetrics?.avgBranching || 0) > 2 ? 'shows the pattern creates many branches' : 'indicates relatively linear exploration'}.` : `Branching for ${patternDescription} ${patternType === 'highly-flexible' ? 'is high due to wildcards' : patternType === 'flexible' ? 'is moderate' : 'is low'}.` },
+        { name: 'Leaf nodes', description: 'Shows how many recursive calls ended without creating more children.', how: 'Leaf count comes directly from the terminal nodes in the call tree.', example: analytics ? `Your ${algorithmDescriptor} execution produced ${analytics.treeMetrics?.leaves ?? 0} leaf nodes from the ${patternDescription} pattern.` : 'Leaf nodes represent terminal points where the search completes.' },
+        { name: 'Critical path', description: 'Indicates the length of the path that determines the final successful outcome.', how: 'The backend marks the critical path from the successful branches and counts the states in that path.', example: analytics ? `The critical path for your ${patternDescription} pattern contains ${analytics.treeMetrics?.criticalPathLength ?? 0} states in the ${algorithmDescriptor} trace.` : 'The critical path is the most direct route to the match result.' },
+      ],
+    },
+    problemProfile: {
+      title: 'Problem profile',
+      intro: 'These values summarize the structure of the input pattern so the algorithmic complexity is easier to interpret.',
+      items: [
+        { name: 'Pattern length', description: 'Shows the length of the regex pattern supplied to the algorithm.', how: 'It is taken directly from the input pattern string.', example: `You have ${patternDescription} with length ${patternLength}, which will be matched against a string of length ${text.length}.` },
+        { name: 'Star density', description: 'Measures how often the * operator appears in the pattern.', how: 'It is calculated as the count of * characters divided by the pattern length.', example: `Your pattern contains ${starCount} star(s), yielding a star density of ${formatPercent(starDensity)} — this ${patternType === 'highly-flexible' ? 'creates many branching choices' : patternType === 'flexible' ? 'moderately increases search choices' : patternType === 'moderate' ? 'introduces some backtracking' : 'has minimal impact'} for the ${algorithmDescriptor} algorithm.` },
+        { name: 'Dot density', description: 'Measures how often the . wildcard appears in the pattern.', how: 'It is calculated as the count of . characters divided by the pattern length.', example: `Your pattern contains ${dotCount} dot(s), with a density of ${formatPercent(dotDensity)} — this ${patternType === 'highly-flexible' ? 'makes many positions flexible' : patternType === 'flexible' ? 'adds moderate flexibility' : patternType === 'moderate' ? 'adds minor flexibility' : 'is mostly fixed'}.` },
+        { name: 'Difficulty score', description: 'Provides a rough heuristic for how hard the pattern is likely to be to explore.', how: 'It is derived from the pattern structure, including star density, dot density, and overall length.', example: analytics ? `Your ${patternDescription} pattern scores a difficulty of ${analytics.problemMetrics?.difficultyScore ?? 0} for this ${algorithmDescriptor} case.` : `For ${patternDescription}, expect ${patternType === 'highly-flexible' ? 'very high' : patternType === 'flexible' ? 'high' : patternType === 'moderate' ? 'moderate' : 'low'} algorithmic complexity.` },
+      ],
+    },
+    memoization: {
+      title: 'Memoization',
+      intro: 'These metrics make the benefit of caching visible by distinguishing successful reuse from wasted recomputation.',
+      items: [
+        { name: 'Hits', description: 'Counts how many times the algorithm reused a cached state.', how: 'Each memo hit event emitted by the backend increments this counter.', example: analytics ? `This ${algorithmDescriptor} run recorded ${analytics.memoHits} memo hits.` : 'Memo hits grow when repeated states are queried again.' },
+        { name: 'Misses', description: 'Counts how many states still had to be solved from scratch.', how: 'It is computed as total calls minus memo hits.', example: analytics ? `This ${algorithmDescriptor} run produced ${analytics.memoMisses} memo misses.` : 'Memo misses reflect work that still had to be recomputed.' },
+        { name: 'Resolved states', description: 'Shows how many distinct states were actually solved and stored.', how: 'The backend tracks the set of resolved state keys and reports its size.', example: analytics ? `This ${algorithmDescriptor} run resolved ${analytics.resolvedStates} states.` : 'Resolved states correspond to the entries stored in the cache.' },
+        { name: 'Reuse percentage', description: 'Shows how much of the resolved state space was reused after being stored.', how: 'It is computed as memo hits divided by resolved states.', example: analytics ? `The reuse percentage for this ${algorithmDescriptor} run is ${formatPercent(analytics.reusePercentage)}.` : 'A higher reuse percentage means the cache paid off more often.' },
+        { name: 'Hit rate', description: 'Measures how effective the cache was during the run.', how: 'It is computed as memo hits divided by memo hits plus memo misses.', example: analytics ? `The cache hit rate for this ${algorithmDescriptor} run is ${formatPercent(analytics.hitRate)}.` : 'A high hit rate means the cache was effective.' },
+        { name: 'Cache utilization', description: 'Shows how much of the available cache space was actually used.', how: 'It compares the number of stored states with the total possible state-space positions.', example: analytics ? `The cache utilization for this ${algorithmDescriptor} run is ${formatPercent(analytics.cacheUtilization)}.` : 'Utilization shows how much of the memo table was actually populated.' },
+        { name: 'Reuse factor', description: 'Shows how many times each cached state was reused on average.', how: 'It is calculated as total state visits divided by the number of unique states.', example: analytics ? `The reuse factor for this ${algorithmDescriptor} run is ${analytics.reuseFactor}.` : 'A larger reuse factor means the cached states were reused more often.' },
+      ],
+    },
+    comparison: {
+      title: 'Comparison',
+      intro: 'These values summarize how memoization changes the amount of work required compared with the non-memoized version.',
+      items: [
+        { name: 'Memo vs Backtracking', description: 'Shows the relative speedup in terms of call count.', how: 'It is computed as backtracking calls divided by memoized calls.', example: analytics?.comparisonMetrics?.speedupMemo != null ? `This run shows a ${analytics.comparisonMetrics.speedupMemo}x improvement over backtracking.` : comparisonExample },
+        { name: 'Calls avoided', description: 'Shows how many recursive calls were skipped thanks to memoization.', how: 'It is derived from the difference between the two algorithms’ call counts.', example: analytics?.comparisonMetrics?.callsAvoided != null ? `This comparison avoided ${analytics.comparisonMetrics.callsAvoided} calls.` : comparisonExample },
+        { name: 'Call reduction', description: 'Expresses the same improvement as a percentage.', how: 'It is computed as the share of calls removed relative to the backtracking baseline.', example: analytics?.comparisonMetrics?.callsReduction != null ? `The current call reduction is ${formatPercent(analytics.comparisonMetrics.callsReduction)}.` : comparisonExample },
+        { name: 'Best calls', description: 'Highlights which algorithm used the fewest calls for the current input.', how: 'It is selected by comparing the call metrics across the available traces.', example: analytics?.comparisonMetrics?.winnerCalls ? `The current best-call algorithm is ${analytics.comparisonMetrics.winnerCalls}.` : 'The best-call winner appears once both traces are available.' },
+        { name: 'Best steps', description: 'Highlights which algorithm required the fewest execution steps.', how: 'It is selected by comparing the step metrics across the available traces.', example: analytics?.comparisonMetrics?.winnerSteps ? `The current best-step algorithm is ${analytics.comparisonMetrics.winnerSteps}.` : 'The best-step winner appears once both traces are available.' },
+      ],
+    },
+    visualAnalytics: {
+      title: 'Visual analytics',
+      intro: 'The charts complement the numeric metrics by showing how the execution evolves over time.',
+      items: [
+        { name: 'Calls and unique states', description: 'Shows whether the algorithm is doing a lot of work without discovering many new states.', how: 'The frontend renders the backend timeline for cumulative calls and discovered states side by side.', example: analytics ? `For this ${algorithmDescriptor} run, the timeline shows ${analytics.uniqueStates} unique states and ${analytics.memoHits} memo hits.` : 'The chart will show whether calls grow faster than new states are discovered.' },
+        { name: 'Memo hits', description: 'Shows when the cache begins to pay off during execution.', how: 'The timeline is built from the cumulative memo-hit events emitted by the backend.', example: analytics ? `This ${algorithmDescriptor} run reports ${analytics.memoHits} cumulative memo hits.` : 'The memo-hit curve rises when reuse begins to happen.' },
+        { name: 'Coverage and depth', description: 'Shows how quickly the search space becomes covered and how deeply the recursion grows.', how: 'These values are computed from the trace events and the current recursion depth recorded during execution.', example: analytics ? `This ${algorithmDescriptor} run reached ${formatPercent(analytics.coverage)} coverage with a maximum depth of ${analytics.treeMetrics?.maxDepth ?? 0}.` : 'The chart compares how fast coverage grows against how deep the recursion goes.' },
+        { name: 'Branching activity', description: 'Highlights where the search tree expands the most.', how: 'The backend derives branching data from the recursive call tree.', example: analytics ? `The current ${algorithmDescriptor} tree shows an average branching factor of ${analytics.treeMetrics?.avgBranching ?? 0}.` : 'Branching activity spikes when the search splits into many alternatives.' },
+      ],
+    },
+  };
 };
 
-function MetricHelpModal({ section, onClose }) {
-  const content = metricHelpContent[section];
+function MetricHelpModal({ section, onClose, analytics, input, algorithm, comparison }) {
+  const content = buildMetricHelpContent({ analytics, input, algorithm, comparison })[section];
   if (!content) return null;
 
   return (
@@ -155,6 +193,7 @@ function MetricHelpModal({ section, onClose }) {
               <strong>{item.name}</strong>
               <p>{item.description}</p>
               <span>How it is obtained: {item.how}</span>
+              <div className="metric-help-example"><strong>Example:</strong> {item.example}</div>
             </li>
           ))}
         </ul>
@@ -795,7 +834,16 @@ export default function App() {
         </>
       ) : null}
 
-      {helpModal ? <MetricHelpModal section={helpModal} onClose={() => setHelpModal(null)} /> : null}
+      {helpModal ? (
+        <MetricHelpModal
+          section={helpModal}
+          onClose={() => setHelpModal(null)}
+          analytics={analytics}
+          input={{ s, p }}
+          algorithm={result?.algorithm ?? algorithm}
+          comparison={comparison}
+        />
+      ) : null}
     </div>
   );
 }
