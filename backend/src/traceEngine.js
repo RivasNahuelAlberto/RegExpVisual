@@ -75,6 +75,7 @@ const buildAnalyticsTimeline = ({ events, possibleStates, algorithm, incremental
   let cumulativeCalls = 0;
   let cumulativeMemoHits = 0;
   let currentDepth = 0;
+  let maxDepthReached = 0;
 
   const calls = [];
   const uniqueStatesSeries = [];
@@ -98,6 +99,7 @@ const buildAnalyticsTimeline = ({ events, possibleStates, algorithm, incremental
 
     if (event.type === 'CALL') {
       currentDepth += 1;
+      maxDepthReached = Math.max(maxDepthReached, currentDepth);
     }
 
     if (event.type === 'RETURN') {
@@ -106,6 +108,7 @@ const buildAnalyticsTimeline = ({ events, possibleStates, algorithm, incremental
 
     if (event.type === 'DP_CELL' && algorithm === 'bottomup') {
       currentDepth = 1;
+      maxDepthReached = Math.max(maxDepthReached, currentDepth);
     }
 
     const state = event.state;
@@ -121,7 +124,7 @@ const buildAnalyticsTimeline = ({ events, possibleStates, algorithm, incremental
     uniqueStatesSeries.push({ step, value: uniqueValue });
     memoHitsSeries.push({ step, value: cumulativeMemoHits });
     coverageSeries.push({ step, value: coverageValue });
-    depthSeries.push({ step, value: currentDepth });
+    depthSeries.push({ step, value: algorithm === 'bottomup' ? currentDepth : maxDepthReached });
     cacheStatesSeries.push({ step, value: storedStates.size });
   }
 
@@ -195,7 +198,7 @@ const createPatternDifficulty = (pattern) => {
   };
 };
 
-const computeTraceMetrics = ({ events, stateCounts, analyticsTimeline, callTree, sLength, pLength, calls, memoHits, algorithm, pattern, resolvedStateCount = 0 }) => {
+const computeTraceMetrics = ({ events, stateCounts, analyticsTimeline, callTree, sLength, pLength, calls, memoHits, algorithm, pattern, resolvedStateCount = 0, totalSteps = 0 }) => {
   const mergedStateCounts = stateCounts || collectStateCounts(events);
   const repeatedStates = Array.from(mergedStateCounts.entries())
     .map(([state, count]) => ({ state, count }))
@@ -210,7 +213,7 @@ const computeTraceMetrics = ({ events, stateCounts, analyticsTimeline, callTree,
   const patternDifficulty = createPatternDifficulty(pattern);
   const baseMetrics = buildCoreMetrics({
     calls,
-    steps: events ? events.length : finalAnalyticsTimeline.calls.length,
+    steps: typeof totalSteps === 'number' && totalSteps > 0 ? totalSteps : (events ? events.length : finalAnalyticsTimeline.calls.length),
     memoHits,
     stateCounts: mergedStateCounts,
     resolvedStateCount: algorithm === 'memo' ? resolvedStateCount : 0,
@@ -266,6 +269,7 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
     cumulativeCalls: 0,
     cumulativeMemoHits: 0,
     currentDepth: 0,
+    maxDepthReached: 0,
     possibleStates: (s.length + 1) * (p.length + 1),
   };
   
@@ -354,12 +358,14 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
     }
     if (type === 'CALL') {
       timelineAccumulators.currentDepth += 1;
+      timelineAccumulators.maxDepthReached = Math.max(timelineAccumulators.maxDepthReached, timelineAccumulators.currentDepth);
     }
     if (type === 'RETURN') {
       timelineAccumulators.currentDepth = Math.max(0, timelineAccumulators.currentDepth - 1);
     }
     if (type === 'DP_CELL' && algorithm === 'bottomup') {
       timelineAccumulators.currentDepth = 1;
+      timelineAccumulators.maxDepthReached = Math.max(timelineAccumulators.maxDepthReached, timelineAccumulators.currentDepth);
     }
 
     // Add state to unique states set
@@ -375,7 +381,7 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
     analyticsTimeline.uniqueStates.push({ step, value: uniqueValue });
     analyticsTimeline.memoHits.push({ step, value: timelineAccumulators.cumulativeMemoHits });
     analyticsTimeline.coverage.push({ step, value: coverageValue });
-    analyticsTimeline.depth.push({ step, value: timelineAccumulators.currentDepth });
+    analyticsTimeline.depth.push({ step, value: algorithm === 'bottomup' ? timelineAccumulators.currentDepth : timelineAccumulators.maxDepthReached });
     analyticsTimeline.storedStates.push({ step, value: timelineAccumulators.storedStates.size });
 
     if (typeof onEvent === 'function') {
@@ -524,6 +530,7 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
     algorithm,
     pattern: p,
     resolvedStateCount: algorithm === 'memo' ? resolvedStates.size : 0,
+    totalSteps: step,
   });
 
   const result = {

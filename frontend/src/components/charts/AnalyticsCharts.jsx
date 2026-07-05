@@ -94,7 +94,7 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison, onHe
     coverage: trace.metrics?.coverage ?? 0,
     memoEfficiency: trace.metrics?.hitRate ?? 0,
     redundancy: trace.metrics?.repeatedVisits ?? 0,
-    memory: trace.metrics?.reuseFactor ?? 0,
+    memory: trace.algorithm === 'memo' ? (trace.metrics?.reusePercentage ?? 0) : 0,
   })) ?? [];
 
   const radarData = [

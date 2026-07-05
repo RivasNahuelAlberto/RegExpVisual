@@ -102,3 +102,10 @@ test('bottom-up traces expose analytics timelines that match the summary metrics
   assert.equal(trace.metrics.analytics.timeline.uniqueStates.at(-1)?.value, trace.metrics.uniqueStates);
   assert.equal(trace.metrics.analytics.timeline.coverage.at(-1)?.value, trace.metrics.coverage);
 });
+
+test('recursive depth timelines reflect the maximum depth reached by the execution', () => {
+  const trace = runAlgorithm({ s: 'aa', p: 'a*', algorithm: 'memo' });
+
+  assert.ok(trace.metrics.analytics?.timeline?.depth?.length, 'Expected a depth timeline for recursive traces');
+  assert.ok(trace.metrics.analytics.timeline.depth.at(-1)?.value >= trace.metrics.maxDepth, 'Expected the depth timeline to reflect the maximum depth reached');
+});
