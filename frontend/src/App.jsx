@@ -785,7 +785,7 @@ export default function App() {
                     <button type="button" onClick={() => { setIsPlaying(false); setCurrentStep(0); }}>Restart</button>
                   </div>
                 </div>
-                <p className="step-indicator">Showing {visibleEvents.length} of {timeline.length} events</p>
+                <p className="step-indicator">Showing {visibleEvents.length} of {result.metrics?.steps} events</p>
                 <div className="timeline-scroll">
                   <ul className="timeline-list">
                     {visibleEvents.map((event) => (
