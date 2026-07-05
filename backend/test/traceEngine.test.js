@@ -80,3 +80,14 @@ test('streaming snapshots keep the event history bounded', () => {
   assert.ok(lastSnapshot.events.length <= 200);
   assert.ok(lastSnapshot.streaming.truncated === true || lastSnapshot.events.length <= 200);
 });
+
+test('memo hit metrics remain accurate when the event buffer is truncated', () => {
+  const trace = runAlgorithm({
+    s: 'aaaaaaaaabbbbbbaaaaab',
+    p: 'a*a*a*a*b*b*a*a*a*a*b',
+    algorithm: 'memo',
+  });
+
+  assert.ok(trace.metrics.memoHits > 0, 'Expected memo hits to be counted even when many events are emitted');
+  assert.ok(trace.metrics.reusePercentage > 0, 'Expected reuse percentage to reflect memo hits');
+});

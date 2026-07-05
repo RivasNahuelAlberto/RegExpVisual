@@ -236,11 +236,11 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
   const MAX_CALL_TREE_NODES = 1500;
   let calls = 0;
   let step = 0;
+  let memoHitCount = 0;
   let maxDepthReached = 0;
 
   const buildSnapshot = (finalAnswerValue = null, completed = false) => {
     const currentEvents = events.slice(-MAX_STREAM_EVENTS);
-    const memoHits = currentEvents.filter((event) => event.type === 'MEMO_HIT').length;
     const uniqueStates = stateCounts.size;
     const resolvedStateCount = resolvedStates.size;
     const totalStateVisits = Array.from(stateCounts.values()).reduce((sum, value) => sum + value, 0);
@@ -251,11 +251,11 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
     const metrics = {
       calls,
       steps: step,
-      memoHits,
-      memoMisses: Math.max(0, calls - memoHits),
+      memoHits: memoHitCount,
+      memoMisses: Math.max(0, calls - memoHitCount),
       uniqueStates,
       resolvedStates: resolvedStateCount,
-      reusePercentage: resolvedStateCount ? memoHits / resolvedStateCount : 0,
+      reusePercentage: resolvedStateCount ? memoHitCount / resolvedStateCount : 0,
       totalStateVisits,
       repeatedVisits,
       possibleStates,
@@ -339,6 +339,7 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
     nodeStack.push(node);
 
     if (memo && memo.has(key)) {
+      memoHitCount += 1;
       pushEvent('MEMO_HIT', { i, j }, 'memo hit', { variables: { key } });
       node.memoHit = true;
       node.result = memo.get(key);
@@ -433,7 +434,6 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
     eventCount: events.length,
   });
 
-  const memoHits = events.filter((event) => event.type === 'MEMO_HIT').length;
   const metrics = computeTraceMetrics({
     events,
     stateCounts,
@@ -442,7 +442,7 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
     sLength: s.length,
     pLength: p.length,
     calls,
-    memoHits,
+    memoHits: memoHitCount,
     algorithm,
     pattern: p,
     resolvedStateCount: resolvedStates.size,
