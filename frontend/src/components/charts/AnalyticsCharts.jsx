@@ -34,11 +34,26 @@ const palette = {
   branchingPoints: '#2dd4bf',
 };
 
+const chartHelpKeyMap = {
+  'Recursive Calls Evolution': 'recursiveCallsEvolution',
+  'Unique States Discovery': 'uniqueStatesDiscovery',
+  'Memoization Efficiency': 'memoizationEfficiency',
+  'State Coverage': 'stateCoverage',
+  'Recursion Depth': 'recursionDepth',
+  'Branching Activity': 'branchingActivity',
+  'Calls vs Unique States': 'callsVsUniqueStates',
+  'Calls vs Memo Hits': 'callsVsMemoHits',
+  'Algorithm Comparison': 'algorithmComparison',
+  'Analytics Radar': 'analyticsRadar',
+  'Cache Utilization': 'cacheUtilization',
+  'Pattern Difficulty Breakdown': 'patternDifficultyBreakdown',
+};
+
 const renderCommonChart = ({ title, children, onHelpClick }) => (
   <div className="analytics-chart-card">
     <div className="analytics-chart-header">
       <h4>{title}</h4>
-      {onHelpClick && <button type="button" className="chart-help-trigger" onClick={() => onHelpClick(title)}>Help</button>}
+      {onHelpClick && <button type="button" className="chart-help-trigger" onClick={() => onHelpClick(chartHelpKeyMap[title] ?? title)}>Help</button>}
     </div>
     <div className="analytics-chart-shell">{children}</div>
   </div>
