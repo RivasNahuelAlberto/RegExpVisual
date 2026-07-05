@@ -386,7 +386,25 @@ export default function App() {
   const eventSourceRef = useRef(null);
 
   const timeline = useMemo(() => result?.events ?? [], [result]);
-  const visibleEvents = useMemo(() => timeline.slice(0, currentStep), [timeline, currentStep]);
+  const maxTimelineStep = useMemo(() => timeline.reduce((max, event) => Math.max(max, event?.step ?? 0), 0), [timeline]);
+  const totalSteps = useMemo(() => Math.max(result?.metrics?.steps ?? 0, maxTimelineStep), [result?.metrics?.steps, maxTimelineStep]);
+  const visibleEvents = useMemo(() => {
+    if (!timeline.length) {
+      return [];
+    }
+
+    const targetStep = Math.max(0, currentStep);
+    const matchingEvents = timeline.filter((event) => (event?.step ?? 0) <= targetStep);
+    if (matchingEvents.length) {
+      return matchingEvents;
+    }
+
+    if (timeline.length) {
+      return timeline.slice(-Math.min(10, timeline.length));
+    }
+
+    return [];
+  }, [timeline, currentStep]);
   const selectedCell = useMemo(() => {
     const state = selectedEvent?.state;
     if (typeof state?.i === 'number' && typeof state?.j === 'number') {
@@ -493,7 +511,7 @@ export default function App() {
     const match = findEventByState(state);
     if (!match) return;
     setSelectedEvent(match);
-    setCurrentStep(Math.min(match.step ?? timeline.length, timeline.length));
+    setCurrentStep(Math.max(1, match.step ?? 1));
   };
 
   useEffect(() => {
@@ -501,23 +519,24 @@ export default function App() {
       return undefined;
     }
 
-    if (currentStep >= timeline.length) {
+    if (currentStep >= totalSteps) {
       setIsPlaying(false);
       return undefined;
     }
 
     const timerId = window.setInterval(() => {
       setCurrentStep((value) => {
-        if (value >= timeline.length) {
+        const nextValue = value + 1;
+        if (nextValue >= totalSteps) {
           setIsPlaying(false);
-          return value;
+          return totalSteps;
         }
-        return value + 1;
+        return nextValue;
       });
     }, 350);
 
     return () => window.clearInterval(timerId);
-  }, [currentStep, isPlaying, timeline.length]);
+  }, [currentStep, isPlaying, totalSteps]);
 
   const startExecution = async ({ forceSse = false }) => {
     setLoading(true);
@@ -596,7 +615,7 @@ export default function App() {
               };
               setResult(runningResult);
               setSelectedEvent(incrementalEvents[0] ?? null);
-              setCurrentStep(Math.min(incrementalEvents.length, 1));
+              setCurrentStep(Math.max(1, incrementalEvents.at(-1)?.step ?? 1));
               setProgressMessage(`Received ${incrementalEvents.length} events`);
             }
             if (payload.type === 'SNAPSHOT') {
@@ -608,7 +627,7 @@ export default function App() {
               };
               setResult(runningResult);
               setSelectedEvent(runningResult.events?.[0] ?? null);
-              setCurrentStep(Math.min(runningResult.events?.length ?? 0, 1));
+              setCurrentStep(Math.max(1, runningResult.events?.at(-1)?.step ?? 1));
               setProgressMessage(`Received ${runningResult.events?.length ?? 0} events`);
             }
             if (payload.type === 'SUMMARY') {
@@ -647,7 +666,7 @@ export default function App() {
       const data = await postJson('/api/run', { s, p, algorithm });
       setResult(data);
       setSelectedEvent(data.events?.[0] ?? null);
-      setCurrentStep(Math.min(10, data.events?.length || 0));
+      setCurrentStep(Math.max(1, Math.min(10, data.metrics?.steps ?? data.events?.at(-1)?.step ?? 1)));
       setIsPlaying(false);
 
       const traces = await Promise.all([
@@ -785,7 +804,7 @@ export default function App() {
                     <button type="button" onClick={() => { setIsPlaying(false); setCurrentStep(0); }}>Restart</button>
                   </div>
                 </div>
-                <p className="step-indicator">Showing {visibleEvents.length} of {result.metrics?.steps} events</p>
+                <p className="step-indicator">Showing {visibleEvents.length} event(s) up to step {Math.max(0, currentStep)} of {Math.max(totalSteps, 1)} steps</p>
                 <div className="timeline-scroll">
                   <ul className="timeline-list">
                     {visibleEvents.map((event) => (
