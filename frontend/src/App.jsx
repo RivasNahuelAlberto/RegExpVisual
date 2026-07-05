@@ -69,6 +69,63 @@ const getCallTreeMetrics = (callTree) => {
 
 const formatPercent = (value) => `${Math.round(value * 100)}%`;
 
+const getAlgorithmLimits = (algorithm) => {
+  switch (algorithm) {
+    case 'bottomup':
+      return {
+        title: 'Bottom-up',
+        maxStringLength: 120,
+        maxPatternLength: 80,
+        maxEvents: 300,
+        maxStates: 5000,
+        maxDepth: 80,
+      };
+    case 'backtracking':
+      return {
+        title: 'Backtracking',
+        maxStringLength: 120,
+        maxPatternLength: 80,
+        maxEvents: 300,
+        maxStates: 5000,
+        maxDepth: 80,
+      };
+    case 'memo':
+    default:
+      return {
+        title: 'Memoized backtracking',
+        maxStringLength: 120,
+        maxPatternLength: 80,
+        maxEvents: 300,
+        maxStates: 5000,
+        maxDepth: 80,
+      };
+  }
+};
+
+const buildLimitMessage = ({ algorithm, details = {} }) => {
+  const limits = getAlgorithmLimits(algorithm);
+  const reasons = [];
+  if (details.reason === 'length') {
+    reasons.push(`the input size exceeds the supported range for ${limits.title.toLowerCase()}`);
+  } else if (details.reason === 'budget') {
+    reasons.push(`the execution grows beyond the safe limits for ${limits.title.toLowerCase()}`);
+  } else if (details.reason === 'call-tree') {
+    reasons.push(`the recursive exploration becomes too large for ${limits.title.toLowerCase()}`);
+  } else if (details.reason === 'dp-cells') {
+    reasons.push(`the dynamic programming table grows beyond the supported scope for ${limits.title.toLowerCase()}`);
+  } else {
+    reasons.push(`the request exceeds the supported bounds for ${limits.title.toLowerCase()}`);
+  }
+
+  const parts = [
+    `The execution was stopped because ${reasons[0]}.`,
+    `For ${limits.title}, the recommended maximum values are: string length up to ${limits.maxStringLength}, pattern length up to ${limits.maxPatternLength}, depth up to ${limits.maxDepth}, and roughly ${limits.maxStates} states or ${limits.maxEvents} events per run.`,
+    'Try simplifying the input or reducing the pattern complexity to continue.',
+  ];
+
+  return parts.join(' ');
+};
+
 export default function App() {
   const [s, setS] = useState('aa');
   const [p, setP] = useState('a*');
@@ -83,6 +140,7 @@ export default function App() {
   const [useStream, setUseStream] = useState(true);
   const [streamStatus, setStreamStatus] = useState('idle');
   const [progressMessage, setProgressMessage] = useState('');
+  const [limitModal, setLimitModal] = useState(null);
   const eventSourceRef = useRef(null);
 
   const timeline = useMemo(() => result?.events ?? [], [result]);
@@ -219,6 +277,7 @@ export default function App() {
     event.preventDefault();
     setLoading(true);
     setError('');
+    setLimitModal(null);
     setStreamStatus('idle');
     setProgressMessage('');
 
@@ -303,9 +362,17 @@ export default function App() {
               resolve();
             }
             if (payload.type === 'ERROR') {
-              setError(payload.error);
+              const parsedError = payload.error ? String(payload.error) : 'The backend stopped the execution.';
+              const parsedDetails = payload.details ?? null;
+              setError(parsedError);
               setStreamStatus('error');
               setLoading(false);
+              if (parsedDetails) {
+                setLimitModal({
+                  title: 'Execution stopped for size limits',
+                  message: buildLimitMessage({ algorithm, details: parsedDetails }),
+                });
+              }
               source.close();
               eventSourceRef.current = null;
               resolve();
@@ -391,6 +458,16 @@ export default function App() {
       </div>
 
       {error ? <div className="error">{error}</div> : null}
+
+      {limitModal ? (
+        <div className="limit-modal-backdrop" role="dialog" aria-modal="true" onClick={() => setLimitModal(null)}>
+          <div className="limit-modal" onClick={(event) => event.stopPropagation()}>
+            <h3>{limitModal.title}</h3>
+            <p>{limitModal.message}</p>
+            <button type="button" onClick={() => setLimitModal(null)}>Close</button>
+          </div>
+        </div>
+      ) : null}
 
       {result ? (
         <>
