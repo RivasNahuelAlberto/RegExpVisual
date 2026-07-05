@@ -258,6 +258,25 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
   let step = 0;
   let memoHitCount = 0;
   let maxDepthReached = 0;
+  
+  // Accumulators for analytics timeline (not subject to MAX_STREAM_EVENTS truncation)
+  const timelineAccumulators = {
+    uniqueStates: new Set(),
+    storedStates: new Set(),
+    cumulativeCalls: 0,
+    cumulativeMemoHits: 0,
+    currentDepth: 0,
+    possibleStates: (s.length + 1) * (p.length + 1),
+  };
+  
+  const analyticsTimeline = {
+    calls: [],
+    uniqueStates: [],
+    memoHits: [],
+    coverage: [],
+    depth: [],
+    storedStates: [],
+  };
 
   const buildSnapshot = (finalAnswerValue = null, completed = false) => {
     const currentEvents = events.slice(-MAX_STREAM_EVENTS);
@@ -278,13 +297,21 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
       algorithm,
     });
     const stateGraph = Array.from(new Set(currentEvents.map((event) => `${event.state?.i ?? ''},${event.state?.j ?? ''}`).filter(Boolean)));
+    const analytics = {
+      timeline: analyticsTimeline,
+      branchingActivity: algorithm === 'bottomup' ? [] : computeBranchingActivity(callTree),
+      patternDifficulty: createPatternDifficulty(p),
+    };
     return {
       algorithm,
       input: { s, p },
       events: currentEvents,
       callTree: completed ? callTree : [],
       stateGraph,
-      metrics,
+      metrics: {
+        ...metrics,
+        analytics,
+      },
       finalAnswer: finalAnswerValue,
       streaming: {
         completed,
@@ -314,6 +341,42 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
       events.shift();
     }
     events.push(event);
+
+    // Update timeline accumulators
+    if (type === 'CALL' || type === 'DP_CELL') {
+      timelineAccumulators.cumulativeCalls += 1;
+    }
+    if (type === 'MEMO_HIT') {
+      timelineAccumulators.cumulativeMemoHits += 1;
+    }
+    if (type === 'MEMO_STORE' && state) {
+      timelineAccumulators.storedStates.add(stateKey(state));
+    }
+    if (type === 'CALL') {
+      timelineAccumulators.currentDepth += 1;
+    }
+    if (type === 'RETURN') {
+      timelineAccumulators.currentDepth = Math.max(0, timelineAccumulators.currentDepth - 1);
+    }
+    if (type === 'DP_CELL' && algorithm === 'bottomup') {
+      timelineAccumulators.currentDepth = 1;
+    }
+
+    // Add state to unique states set
+    if (state && Number.isInteger(state.i) && Number.isInteger(state.j)) {
+      timelineAccumulators.uniqueStates.add(stateKey(state));
+    }
+
+    // Push to timeline series
+    const uniqueValue = timelineAccumulators.uniqueStates.size;
+    const coverageValue = timelineAccumulators.possibleStates ? uniqueValue / timelineAccumulators.possibleStates : 0;
+
+    analyticsTimeline.calls.push({ step, value: timelineAccumulators.cumulativeCalls });
+    analyticsTimeline.uniqueStates.push({ step, value: uniqueValue });
+    analyticsTimeline.memoHits.push({ step, value: timelineAccumulators.cumulativeMemoHits });
+    analyticsTimeline.coverage.push({ step, value: coverageValue });
+    analyticsTimeline.depth.push({ step, value: timelineAccumulators.currentDepth });
+    analyticsTimeline.storedStates.push({ step, value: timelineAccumulators.storedStates.size });
 
     if (typeof onEvent === 'function') {
       onEvent(event);
@@ -452,7 +515,7 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
   const metrics = computeTraceMetrics({
     events,
     stateCounts,
-    analyticsTimeline: null,
+    analyticsTimeline,
     callTree,
     sLength: s.length,
     pLength: p.length,
