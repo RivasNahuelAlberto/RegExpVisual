@@ -104,24 +104,26 @@ const getAlgorithmLimits = (algorithm) => {
 
 const buildLimitMessage = ({ algorithm, details = {} }) => {
   const limits = getAlgorithmLimits(algorithm);
-  const reasons = [];
-  if (details.reason === 'length') {
-    reasons.push(`the input size exceeds the supported range for ${limits.title.toLowerCase()}`);
-  } else if (details.reason === 'budget') {
-    reasons.push(`the execution grows beyond the safe limits for ${limits.title.toLowerCase()}`);
-  } else if (details.reason === 'call-tree') {
-    reasons.push(`the recursive exploration becomes too large for ${limits.title.toLowerCase()}`);
-  } else if (details.reason === 'dp-cells') {
-    reasons.push(`the dynamic programming table grows beyond the supported scope for ${limits.title.toLowerCase()}`);
-  } else {
-    reasons.push(`the request exceeds the supported bounds for ${limits.title.toLowerCase()}`);
-  }
+  const reasonText = details.reason === 'length'
+    ? `the input size is larger than the supported range for ${limits.title.toLowerCase()}`
+    : details.reason === 'budget'
+      ? `the execution grows beyond the safe limits for ${limits.title.toLowerCase()}`
+      : details.reason === 'call-tree'
+        ? `the recursive exploration becomes too large for ${limits.title.toLowerCase()}`
+        : details.reason === 'dp-cells'
+          ? `the dynamic programming table grows beyond the supported scope for ${limits.title.toLowerCase()}`
+          : `the request exceeds the supported bounds for ${limits.title.toLowerCase()}`;
+
+  const budgetHint = details.reason === 'budget'
+    ? 'This usually happens when the pattern uses many repeated operators such as stars, dots, or alternations, which make the search space expand quickly.'
+    : '';
 
   const parts = [
-    `The execution was stopped because ${reasons[0]}.`,
+    `The execution was stopped because ${reasonText}.`,
     `For ${limits.title}, the recommended maximum values are: string length up to ${limits.maxStringLength}, pattern length up to ${limits.maxPatternLength}, depth up to ${limits.maxDepth}, and roughly ${limits.maxStates} states or ${limits.maxEvents} events per run.`,
-    'Try simplifying the input or reducing the pattern complexity to continue.',
-  ];
+    budgetHint,
+    'Try simplifying the input, shortening the pattern, or choosing a less exploratory algorithm for this case.',
+  ].filter(Boolean);
 
   return parts.join(' ');
 };
