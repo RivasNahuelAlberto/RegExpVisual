@@ -554,6 +554,17 @@ button { cursor: pointer; }
   height: calc(100% - 2rem);
   min-height: 240px;
 }
+.analytics-chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.analytics-chart-header h4 {
+  margin: 0;
+  flex: 1;
+}
 .metric-card-header {
   display: flex;
   align-items: center;
@@ -573,6 +584,20 @@ button { cursor: pointer; }
 }
 
 .metric-help-trigger:hover {
+  background: rgba(37, 99, 235, 0.28);
+}
+
+.chart-help-trigger {
+  border: 1px solid rgba(96, 165, 250, 0.35);
+  background: rgba(37, 99, 235, 0.16);
+  color: #dbeafe;
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.chart-help-trigger:hover {
   background: rgba(37, 99, 235, 0.28);
 }
 

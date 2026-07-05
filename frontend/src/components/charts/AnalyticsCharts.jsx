@@ -34,16 +34,19 @@ const palette = {
   branchingPoints: '#2dd4bf',
 };
 
-const renderCommonChart = ({ title, children }) => (
+const renderCommonChart = ({ title, children, onHelpClick }) => (
   <div className="analytics-chart-card">
-    <h4>{title}</h4>
+    <div className="analytics-chart-header">
+      <h4>{title}</h4>
+      {onHelpClick && <button type="button" className="chart-help-trigger" onClick={() => onHelpClick(title)}>Help</button>}
+    </div>
     <div className="analytics-chart-shell">{children}</div>
   </div>
 );
 
 const timelineToData = (series) => series?.map(({ step, value }) => ({ step, value })) ?? [];
 
-export default function AnalyticsCharts({ analytics, algorithm, comparison }) {
+export default function AnalyticsCharts({ analytics, algorithm, comparison, onHelpClick }) {
   const callsData = timelineToData(analytics.timeline.calls);
   const uniqueStatesData = timelineToData(analytics.timeline.uniqueStates);
   const memoHitsData = timelineToData(analytics.timeline.memoHits);
@@ -121,6 +124,7 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison }) {
     <div className="analytics-charts-grid">
       {renderCommonChart({
         title: 'Recursive Calls Evolution',
+        onHelpClick,
         children: (
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={callsData}>
@@ -136,6 +140,7 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison }) {
 
       {renderCommonChart({
         title: 'Unique States Discovery',
+        onHelpClick,
         children: (
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={uniqueStatesData}>
@@ -151,6 +156,7 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison }) {
 
       {algorithm === 'memo' ? renderCommonChart({
         title: 'Memoization Efficiency',
+        onHelpClick,
         children: (
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={memoHitsData}>
@@ -166,6 +172,7 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison }) {
 
       {renderCommonChart({
         title: 'State Coverage',
+        onHelpClick,
         children: (
           <ResponsiveContainer width="100%" height={240}>
             <AreaChart data={coverageData}>
@@ -181,6 +188,7 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison }) {
 
       {renderCommonChart({
         title: 'Recursion Depth',
+        onHelpClick,
         children: (
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={depthData}>
@@ -197,6 +205,7 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison }) {
 
       {renderCommonChart({
         title: 'Branching Activity',
+        onHelpClick,
         children: (
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={branchingData}>
@@ -212,6 +221,7 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison }) {
 
       {renderCommonChart({
         title: 'Calls vs Unique States',
+        onHelpClick,
         children: (
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={callsData.map((entry, index) => ({
@@ -232,6 +242,7 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison }) {
 
       {algorithm === 'memo' ? renderCommonChart({
         title: 'Calls vs Memo Hits',
+        onHelpClick,
         children: (
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={callsData.map((entry, index) => ({
@@ -252,6 +263,7 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison }) {
 
       {renderCommonChart({
         title: 'Algorithm Comparison',
+        onHelpClick,
         children: (
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={comparisonMetrics}>
@@ -271,6 +283,7 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison }) {
 
       {comparisonMetrics.length ? renderCommonChart({
         title: 'Analytics Radar',
+        onHelpClick,
         children: (
           <ResponsiveContainer width="100%" height={320}>
             <RadarChart data={radarData}>
@@ -288,6 +301,7 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison }) {
 
       {algorithm === 'memo' ? renderCommonChart({
         title: 'Cache Utilization',
+        onHelpClick,
         children: (
           <ResponsiveContainer width="100%" height={240}>
             <AreaChart data={storedStatesData.map((entry) => ({
@@ -308,6 +322,7 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison }) {
 
       {renderCommonChart({
         title: 'Pattern Difficulty Breakdown',
+        onHelpClick,
         children: (
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={patternDifficultyData}>
