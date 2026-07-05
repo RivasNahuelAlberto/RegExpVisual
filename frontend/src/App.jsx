@@ -102,6 +102,31 @@ const getAlgorithmLimits = (algorithm) => {
   }
 };
 
+const getSseRecommendation = ({ s, p, algorithm }) => {
+  const limits = getAlgorithmLimits(algorithm);
+  const stringLength = String(s ?? '').length;
+  const patternLength = String(p ?? '').length;
+  const patternText = String(p ?? '');
+  const patternComplexity = (patternText.match(/[*+?{}()[\]|.]/g) ?? []).length;
+  const complexityScore = stringLength + patternLength * 1.2 + patternComplexity * 3;
+  const normalizedScore = complexityScore / (limits.maxStringLength + limits.maxPatternLength * 1.2 + 20);
+  const threshold = algorithm === 'bottomup' ? 0.72 : algorithm === 'backtracking' ? 0.6 : 0.65;
+
+  const shouldRecommendSse = normalizedScore >= threshold
+    || (stringLength >= Math.max(24, Math.floor(limits.maxStringLength * 0.55)) && patternLength >= Math.max(18, Math.floor(limits.maxPatternLength * 0.4)))
+    || stringLength >= Math.max(26, Math.floor(limits.maxStringLength * 0.8))
+    || patternLength >= Math.max(24, Math.floor(limits.maxPatternLength * 0.8));
+
+  if (!shouldRecommendSse) {
+    return null;
+  }
+
+  return {
+    title: 'Streaming mode recommended',
+    message: `This input looks large for ${limits.title.toLowerCase()}, and streaming mode is the better fit for tracking progress while the backend evaluates it.`,
+  };
+};
+
 const buildLimitMessage = ({ algorithm, details = {} }) => {
   const limits = getAlgorithmLimits(algorithm);
   const reasonText = details.reason === 'length'
@@ -143,6 +168,7 @@ export default function App() {
   const [streamStatus, setStreamStatus] = useState('idle');
   const [progressMessage, setProgressMessage] = useState('');
   const [limitModal, setLimitModal] = useState(null);
+  const [pendingSsePrompt, setPendingSsePrompt] = useState(null);
   const eventSourceRef = useRef(null);
 
   const timeline = useMemo(() => result?.events ?? [], [result]);
@@ -275,11 +301,11 @@ export default function App() {
     return () => window.clearInterval(timerId);
   }, [currentStep, isPlaying, timeline.length]);
 
-  async function handleSubmit(event) {
-    event.preventDefault();
+  const startExecution = async ({ forceSse = false }) => {
     setLoading(true);
     setError('');
     setLimitModal(null);
+    setPendingSsePrompt(null);
     setStreamStatus('idle');
     setProgressMessage('');
 
@@ -288,7 +314,9 @@ export default function App() {
       eventSourceRef.current = null;
     }
 
-    if (useStream) {
+    const shouldUseSse = forceSse || useStream;
+
+    if (shouldUseSse) {
       return new Promise((resolve) => {
         const params = new URLSearchParams({ s, p, algorithm });
         const source = new EventSource(`${buildApiPath('/api/run-stream')}?${params.toString()}`);
@@ -402,9 +430,31 @@ export default function App() {
       setComparison(traces);
     } catch (err) {
       setError(err.message);
+      if (err?.details) {
+        setLimitModal({
+          title: 'Execution stopped for size limits',
+          message: buildLimitMessage({ algorithm, details: err.details }),
+        });
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+
+    const sseRecommendation = getSseRecommendation({ s, p, algorithm });
+    if (sseRecommendation && !useStream && !eventSourceRef.current) {
+      setPendingSsePrompt(sseRecommendation);
+      return;
+    }
+
+    await startExecution({ forceSse: false });
+  }
+
+  async function handleAcceptSseRecommendation() {
+    await startExecution({ forceSse: true });
   }
 
   return (
@@ -467,6 +517,19 @@ export default function App() {
             <h3>{limitModal.title}</h3>
             <p>{limitModal.message}</p>
             <button type="button" onClick={() => setLimitModal(null)}>Close</button>
+          </div>
+        </div>
+      ) : null}
+
+      {pendingSsePrompt ? (
+        <div className="limit-modal-backdrop" role="dialog" aria-modal="true" onClick={() => setPendingSsePrompt(null)}>
+          <div className="limit-modal" onClick={(event) => event.stopPropagation()}>
+            <h3>{pendingSsePrompt.title}</h3>
+            <p>{pendingSsePrompt.message}</p>
+            <div className="limit-modal-actions">
+              <button type="button" onClick={() => setPendingSsePrompt(null)}>Cancel</button>
+              <button type="button" onClick={handleAcceptSseRecommendation}>Accept</button>
+            </div>
           </div>
         </div>
       ) : null}
