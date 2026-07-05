@@ -8,6 +8,75 @@ const logDpEvent = (message, details = {}) => {
   console.log(`[regex-dp] ${message}`, JSON.stringify(details));
 };
 
+const createPatternDifficulty = (pattern) => {
+  const safePattern = typeof pattern === 'string' ? pattern : String(pattern ?? '');
+  const starCount = (safePattern.match(/\*/g) || []).length;
+  const dotCount = (safePattern.match(/\./g) || []).length;
+  return {
+    starCount,
+    dotCount,
+    patternLength: safePattern.length,
+    branchingPoints: starCount,
+  };
+};
+
+const buildAnalyticsTimeline = ({ events, possibleStates, algorithm }) => {
+  const uniqueStates = new Set();
+  const storedStates = new Set();
+  let cumulativeCalls = 0;
+  let cumulativeMemoHits = 0;
+  let currentDepth = 0;
+
+  const calls = [];
+  const uniqueStatesSeries = [];
+  const memoHitsSeries = [];
+  const coverageSeries = [];
+  const depthSeries = [];
+  const cacheStatesSeries = [];
+
+  for (const event of events ?? []) {
+    if (event.type === 'DP_CELL') {
+      cumulativeCalls += 1;
+    }
+
+    if (event.type === 'MEMO_HIT') {
+      cumulativeMemoHits += 1;
+    }
+
+    if (event.type === 'MEMO_STORE' && event.state) {
+      storedStates.add(`${event.state.i},${event.state.j}`);
+    }
+
+    if (event.type === 'DP_CELL' && algorithm === 'bottomup') {
+      currentDepth = 1;
+    }
+
+    if (event.state && Number.isInteger(event.state.i) && Number.isInteger(event.state.j)) {
+      uniqueStates.add(`${event.state.i},${event.state.j}`);
+    }
+
+    const step = event.step;
+    const uniqueValue = uniqueStates.size;
+    const coverageValue = possibleStates ? uniqueValue / possibleStates : 0;
+
+    calls.push({ step, value: cumulativeCalls });
+    uniqueStatesSeries.push({ step, value: uniqueValue });
+    memoHitsSeries.push({ step, value: cumulativeMemoHits });
+    coverageSeries.push({ step, value: coverageValue });
+    depthSeries.push({ step, value: currentDepth });
+    cacheStatesSeries.push({ step, value: storedStates.size });
+  }
+
+  return {
+    calls,
+    uniqueStates: uniqueStatesSeries,
+    memoHits: memoHitsSeries,
+    coverage: coverageSeries,
+    depth: depthSeries,
+    storedStates: cacheStatesSeries,
+  };
+};
+
 export function runBottomUp({ s, p, stream = false, onEvent = null, onSnapshot = null, shouldAbort = null }) {
   const events = [];
   const m = s.length;
@@ -20,35 +89,45 @@ export function runBottomUp({ s, p, stream = false, onEvent = null, onSnapshot =
   let step = 0;
   let maxDepthReached = 0;
 
-  const buildSnapshot = (finalAnswerValue = null, completed = false) => ({
-    algorithm: 'bottomup',
-    input: { s, p },
-    events: events.slice(0, MAX_STREAM_EVENTS),
-    dp,
-    dependencies: dependencyMap,
-    order: orderMap,
-    metrics: {
-      calls: 1,
-      steps: step,
-      depth: Math.max(m, n),
-      uniqueStates: stateCounts.size,
-      totalStateVisits: Array.from(stateCounts.values()).reduce((sum, value) => sum + value, 0),
-      repeatedVisits: Math.max(0, Array.from(stateCounts.values()).reduce((sum, value) => sum + value, 0) - stateCounts.size),
-      repeatedStates: Array.from(stateCounts.entries())
-        .map(([state, count]) => ({ state, count }))
-        .filter((entry) => entry.count > 1)
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 5),
-      possibleStates: (m + 1) * (n + 1),
-      coverage: stateCounts.size / ((m + 1) * (n + 1)),
-      reuseFactor: stateCounts.size ? Number((Array.from(stateCounts.values()).reduce((sum, value) => sum + value, 0) / stateCounts.size).toFixed(2)) : 0,
-    },
-    finalAnswer: finalAnswerValue,
-    streaming: {
-      completed,
-      truncated: events.length > MAX_STREAM_EVENTS,
-    },
-  });
+  const buildSnapshot = (finalAnswerValue = null, completed = false) => {
+    const possibleStates = (m + 1) * (n + 1);
+    const analytics = {
+      timeline: buildAnalyticsTimeline({ events, possibleStates, algorithm: 'bottomup' }),
+      branchingActivity: [],
+      patternDifficulty: createPatternDifficulty(p),
+    };
+
+    return {
+      algorithm: 'bottomup',
+      input: { s, p },
+      events: events.slice(0, MAX_STREAM_EVENTS),
+      dp,
+      dependencies: dependencyMap,
+      order: orderMap,
+      metrics: {
+        calls: events.filter((event) => event.type === 'DP_CELL').length,
+        steps: step,
+        depth: Math.max(m, n),
+        uniqueStates: stateCounts.size,
+        totalStateVisits: Array.from(stateCounts.values()).reduce((sum, value) => sum + value, 0),
+        repeatedVisits: Math.max(0, Array.from(stateCounts.values()).reduce((sum, value) => sum + value, 0) - stateCounts.size),
+        repeatedStates: Array.from(stateCounts.entries())
+          .map(([state, count]) => ({ state, count }))
+          .filter((entry) => entry.count > 1)
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 5),
+        possibleStates,
+        coverage: stateCounts.size / possibleStates,
+        reuseFactor: stateCounts.size ? Number((Array.from(stateCounts.values()).reduce((sum, value) => sum + value, 0) / stateCounts.size).toFixed(2)) : 0,
+        analytics,
+      },
+      finalAnswer: finalAnswerValue,
+      streaming: {
+        completed,
+        truncated: events.length > MAX_STREAM_EVENTS,
+      },
+    };
+  };
 
   const emitSnapshot = (finalAnswerValue = null, completed = false) => {
     if (typeof onSnapshot === 'function') {
@@ -157,6 +236,11 @@ export function runBottomUp({ s, p, stream = false, onEvent = null, onSnapshot =
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
   const reuseFactor = uniqueStates ? Number((totalStateVisits / uniqueStates).toFixed(2)) : 0;
+  const analytics = {
+    timeline: buildAnalyticsTimeline({ events, possibleStates, algorithm: 'bottomup' }),
+    branchingActivity: [],
+    patternDifficulty: createPatternDifficulty(p),
+  };
 
   const result = {
     algorithm: 'bottomup',
@@ -165,7 +249,7 @@ export function runBottomUp({ s, p, stream = false, onEvent = null, onSnapshot =
     dependencies: dependencyMap,
     order: orderMap,
     metrics: {
-      calls: 1,
+      calls: events.filter((event) => event.type === 'DP_CELL').length,
       steps: step,
       depth: Math.max(m, n),
       uniqueStates,
@@ -175,6 +259,7 @@ export function runBottomUp({ s, p, stream = false, onEvent = null, onSnapshot =
       possibleStates,
       coverage,
       reuseFactor,
+      analytics,
     },
     finalAnswer: dp[0][0],
     events,

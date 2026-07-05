@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { runAlgorithm } from '../src/traceEngine.js';
+import { runTrace } from '../src/algorithmRunner.js';
 import { ExecutionBudgetExceededError } from '../src/guardrails.js';
 
 test('runAlgorithm returns a trace with a final answer for a known case', () => {
@@ -90,4 +91,14 @@ test('memo hit metrics remain accurate when the event buffer is truncated', () =
 
   assert.ok(trace.metrics.memoHits > 0, 'Expected memo hits to be counted even when many events are emitted');
   assert.ok(trace.metrics.reusePercentage > 0, 'Expected reuse percentage to reflect memo hits');
+});
+
+test('bottom-up traces expose analytics timelines that match the summary metrics', () => {
+  const trace = runTrace({ s: 'aa', p: 'a*', algorithm: 'bottomup' });
+
+  assert.ok(trace.metrics.analytics?.timeline, 'Expected bottom-up analytics timeline to be present');
+  assert.ok(Array.isArray(trace.metrics.analytics.timeline.calls));
+  assert.equal(trace.metrics.analytics.timeline.calls.at(-1)?.value, trace.metrics.calls);
+  assert.equal(trace.metrics.analytics.timeline.uniqueStates.at(-1)?.value, trace.metrics.uniqueStates);
+  assert.equal(trace.metrics.analytics.timeline.coverage.at(-1)?.value, trace.metrics.coverage);
 });
