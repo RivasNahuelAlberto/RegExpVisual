@@ -166,7 +166,7 @@ const createPatternDifficulty = (pattern) => {
   };
 };
 
-const computeTraceMetrics = ({ events, stateCounts, analyticsTimeline, callTree, sLength, pLength, calls, memoHits, algorithm, pattern }) => {
+const computeTraceMetrics = ({ events, stateCounts, analyticsTimeline, callTree, sLength, pLength, calls, memoHits, algorithm, pattern, resolvedStateCount = 0 }) => {
   const mergedStateCounts = stateCounts || collectStateCounts(events);
   const uniqueStates = mergedStateCounts.size;
   const totalStateVisits = Array.from(mergedStateCounts.values()).reduce((sum, value) => sum + value, 0);
@@ -205,6 +205,8 @@ const computeTraceMetrics = ({ events, stateCounts, analyticsTimeline, callTree,
     maxDepth: treeMetrics?.maxDepth ?? 1,
     avgDepth: treeMetrics?.avgDepth ?? 1,
     avgBranching: treeMetrics?.avgBranching ?? 0,
+    resolvedStates: resolvedStateCount,
+    reusePercentage: resolvedStateCount ? memoHits / resolvedStateCount : 0,
     leaves: treeMetrics?.leaves ?? 0,
     criticalPathLength: treeMetrics?.criticalPathLength ?? 0,
     analytics: {
@@ -229,6 +231,7 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
   const callTree = [];
   const nodeStack = [];
   const stateCounts = new Map();
+  const resolvedStates = new Set();
   const MAX_STREAM_EVENTS = 200;
   const MAX_CALL_TREE_NODES = 1500;
   let calls = 0;
@@ -239,6 +242,7 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
     const currentEvents = events.slice(-MAX_STREAM_EVENTS);
     const memoHits = currentEvents.filter((event) => event.type === 'MEMO_HIT').length;
     const uniqueStates = stateCounts.size;
+    const resolvedStateCount = resolvedStates.size;
     const totalStateVisits = Array.from(stateCounts.values()).reduce((sum, value) => sum + value, 0);
     const repeatedVisits = Math.max(0, totalStateVisits - uniqueStates);
     const possibleStates = (s.length + 1) * (p.length + 1);
@@ -250,6 +254,8 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
       memoHits,
       memoMisses: Math.max(0, calls - memoHits),
       uniqueStates,
+      resolvedStates: resolvedStateCount,
+      reusePercentage: resolvedStateCount ? memoHits / resolvedStateCount : 0,
       totalStateVisits,
       repeatedVisits,
       possibleStates,
@@ -341,6 +347,7 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
     }
 
     pushEvent('CALL', { i, j }, 'call', { variables: { key } });
+    resolvedStates.add(key);
 
     if (j === p.length) {
       const result = i === s.length;
@@ -438,6 +445,7 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
     memoHits,
     algorithm,
     pattern: p,
+    resolvedStateCount: resolvedStates.size,
   });
 
   const result = {

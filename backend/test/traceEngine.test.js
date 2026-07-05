@@ -38,6 +38,8 @@ test('memoized runs expose reuse in the metrics payload', () => {
   const memoized = runAlgorithm({ s: 'aaa', p: 'a*a*', algorithm: 'memo' });
   assert.ok(memoized.metrics.reuseFactor > 1, 'Expected memoized runs to show repeated-state reuse');
   assert.ok(memoized.metrics.repeatedVisits > 0, 'Expected memoized runs to record repeated state visits');
+  assert.ok(memoized.metrics.resolvedStates > 0, 'Expected memoized runs to report states actually solved');
+  assert.ok(memoized.metrics.reusePercentage >= 0, 'Expected memoized runs to report reuse percentage');
 });
 
 test('streaming snapshots include incremental metrics and call tree state', () => {

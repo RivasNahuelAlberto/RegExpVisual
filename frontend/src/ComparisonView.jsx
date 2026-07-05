@@ -9,6 +9,8 @@ const metricOptions = [
   { value: 'uniqueStates', label: 'Unique states' },
   { value: 'repeatedVisits', label: 'Repeated visits' },
   { value: 'coverage', label: 'Coverage' },
+  { value: 'resolvedStates', label: 'Resolved states' },
+  { value: 'reusePercentage', label: 'Reuse percentage' },
   { value: 'hitRate', label: 'Hit rate' },
   { value: 'maxDepth', label: 'Max depth' },
 ];
@@ -23,6 +25,8 @@ export default function ComparisonView({ traces }) {
     { label: 'Repeated visits', field: 'repeatedVisits' },
     { label: 'Coverage', field: 'coverage', formatter: formatPercent },
     { label: 'Memo hits', field: 'memoHits' },
+    { label: 'Resolved states', field: 'resolvedStates' },
+    { label: 'Reuse percentage', field: 'reusePercentage', formatter: formatPercent },
     { label: 'Hit rate', field: 'hitRate', formatter: formatPercent },
     { label: 'Reuse factor', field: 'reuseFactor' },
     { label: 'Max depth', field: 'maxDepth' },
@@ -42,6 +46,14 @@ export default function ComparisonView({ traces }) {
       {
         label: 'Memo hits',
         value: `${memo.metrics?.memoHits ?? 0} memo hits`,
+      },
+      {
+        label: 'Resolved states',
+        value: `${memo.metrics?.resolvedStates ?? 0} states actually solved`,
+      },
+      {
+        label: 'Reuse percentage',
+        value: `${formatPercent(memo.metrics?.reusePercentage ?? 0)} of resolved states reused`,
       },
       {
         label: 'Cache utilization',

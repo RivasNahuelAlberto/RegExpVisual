@@ -198,6 +198,8 @@ export default function App() {
     const memoHits = result.metrics?.memoHits ?? 0;
     const memoMisses = result.metrics?.memoMisses ?? 0;
     const hitRate = result.metrics?.hitRate ?? 0;
+    const resolvedStates = result.metrics?.resolvedStates ?? 0;
+    const reusePercentage = result.metrics?.reusePercentage ?? 0;
     const cacheUtilization = result.metrics?.cacheUtilization ?? (possibleStates ? uniqueStates / possibleStates : 0);
     const reuseFactor = result.metrics?.reuseFactor ?? (uniqueStates ? Number((totalStateVisits / uniqueStates).toFixed(2)) : 0);
     const pattern = result.input?.p ?? p;
@@ -246,6 +248,8 @@ export default function App() {
       memoHits,
       memoMisses,
       hitRate,
+      resolvedStates,
+      reusePercentage,
       cacheUtilization,
       reuseFactor,
       problemMetrics: {
@@ -548,6 +552,8 @@ export default function App() {
               <div><strong>Algorithm:</strong> {result.algorithm}</div>
               <div><strong>Calls:</strong> {result.metrics?.calls}</div>
               <div><strong>Memo hits:</strong> {result.metrics?.memoHits}</div>
+              <div><strong>Resolved states:</strong> {result.metrics?.resolvedStates}</div>
+              <div><strong>Reuse percentage:</strong> {formatPercent(result.metrics?.reusePercentage ?? 0)}</div>
               <div><strong>Steps:</strong> {result.metrics?.steps}</div>
               <div><strong>State graph:</strong> {result.stateGraph?.length}</div>
             </div>
@@ -639,6 +645,8 @@ export default function App() {
                         <h3>Memoization</h3>
                         <p><strong>Hits:</strong> {analytics.memoHits}</p>
                         <p><strong>Misses:</strong> {analytics.memoMisses}</p>
+                        <p><strong>Resolved states:</strong> {analytics.resolvedStates}</p>
+                        <p><strong>Reuse percentage:</strong> {formatPercent(analytics.reusePercentage)}</p>
                         <p><strong>Hit rate:</strong> {formatPercent(analytics.hitRate)}</p>
                         <p><strong>Cache utilization:</strong> {formatPercent(analytics.cacheUtilization)}</p>
                         <p><strong>Reuse factor:</strong> {analytics.reuseFactor}</p>
