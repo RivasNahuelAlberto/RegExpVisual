@@ -35,9 +35,6 @@ const buildAnalyticsTimeline = ({ events, possibleStates, algorithm }) => {
   const cacheStatesSeries = [];
 
   for (const event of events ?? []) {
-    if (event.type === 'DP_CELL') {
-      cumulativeCalls += 1;
-    }
 
     if (event.type === 'MEMO_HIT') {
       cumulativeMemoHits += 1;
@@ -59,7 +56,7 @@ const buildAnalyticsTimeline = ({ events, possibleStates, algorithm }) => {
     const uniqueValue = uniqueStates.size;
     const coverageValue = possibleStates ? uniqueValue / possibleStates : 0;
 
-    calls.push({ step, value: cumulativeCalls });
+    //calls.push({ step, value: cumulativeCalls });
     uniqueStatesSeries.push({ step, value: uniqueValue });
     memoHitsSeries.push({ step, value: cumulativeMemoHits });
     coverageSeries.push({ step, value: coverageValue });
@@ -129,7 +126,7 @@ export function runBottomUp({ s, p, stream = false, onEvent = null, onSnapshot =
     const uniqueValue = timelineAccumulators.uniqueStates.size;
     const coverageValue = timelineAccumulators.possibleStates ? uniqueValue / timelineAccumulators.possibleStates : 0;
 
-    analyticsTimeline.calls.push({ step: event.step, value: timelineAccumulators.cumulativeCalls });
+    //analyticsTimeline.calls.push({ step: event.step, value: timelineAccumulators.cumulativeCalls });
     analyticsTimeline.uniqueStates.push({ step: event.step, value: uniqueValue });
     analyticsTimeline.memoHits.push({ step: event.step, value: timelineAccumulators.cumulativeMemoHits });
     analyticsTimeline.coverage.push({ step: event.step, value: coverageValue });
@@ -298,7 +295,7 @@ export function runBottomUp({ s, p, stream = false, onEvent = null, onSnapshot =
     dependencies: dependencyMap,
     order: orderMap,
     metrics: {
-      calls: analyticsTimeline.calls.at(-1)?.value ?? 0,
+      calls: 1,
       steps: step,
       depth: Math.max(m, n),
       uniqueStates,
