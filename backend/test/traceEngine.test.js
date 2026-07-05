@@ -63,3 +63,18 @@ test('large inputs are rejected by the execution guardrails', () => {
     (error) => error instanceof ExecutionBudgetExceededError,
   );
 });
+
+test('streaming snapshots keep the event history bounded', () => {
+  const snapshots = [];
+  runAlgorithm({
+    s: 'aaaaaaaaaaaaaaaa',
+    p: '.*a.*a.*a.*a.*a.*a.*a.*a.*a.*a.*a.*a.*a.*a.*a.*',
+    algorithm: 'memo',
+    onSnapshot: (snapshot) => snapshots.push(snapshot),
+  });
+
+  const lastSnapshot = snapshots.at(-1);
+  assert.ok(lastSnapshot);
+  assert.ok(lastSnapshot.events.length <= 200);
+  assert.ok(lastSnapshot.streaming.truncated === true || lastSnapshot.events.length <= 200);
+});

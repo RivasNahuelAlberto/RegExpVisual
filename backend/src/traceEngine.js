@@ -229,31 +229,41 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
   const callTree = [];
   const nodeStack = [];
   const stateCounts = new Map();
-  const MAX_STREAM_EVENTS = 2000;
+  const MAX_STREAM_EVENTS = 200;
+  const MAX_CALL_TREE_NODES = 1500;
   let calls = 0;
   let step = 0;
   let maxDepthReached = 0;
 
   const buildSnapshot = (finalAnswerValue = null, completed = false) => {
-    const currentEvents = events.slice(0, MAX_STREAM_EVENTS);
-    const metrics = computeTraceMetrics({
-      events: currentEvents,
-      stateCounts,
-      analyticsTimeline: null,
-      callTree,
-      sLength: s.length,
-      pLength: p.length,
+    const currentEvents = events.slice(-MAX_STREAM_EVENTS);
+    const memoHits = currentEvents.filter((event) => event.type === 'MEMO_HIT').length;
+    const uniqueStates = stateCounts.size;
+    const totalStateVisits = Array.from(stateCounts.values()).reduce((sum, value) => sum + value, 0);
+    const repeatedVisits = Math.max(0, totalStateVisits - uniqueStates);
+    const possibleStates = (s.length + 1) * (p.length + 1);
+    const coverage = possibleStates ? uniqueStates / possibleStates : 0;
+    const reuseFactor = uniqueStates ? Number((totalStateVisits / uniqueStates).toFixed(2)) : 0;
+    const metrics = {
       calls,
-      memoHits: currentEvents.filter((event) => event.type === 'MEMO_HIT').length,
-      algorithm,
-      pattern: p,
-    });
+      steps: step,
+      memoHits,
+      memoMisses: Math.max(0, calls - memoHits),
+      uniqueStates,
+      totalStateVisits,
+      repeatedVisits,
+      possibleStates,
+      coverage,
+      reuseFactor,
+      maxDepth: maxDepthReached,
+      depth: maxDepthReached,
+    };
     const stateGraph = Array.from(new Set(currentEvents.map((event) => `${event.state?.i ?? ''},${event.state?.j ?? ''}`).filter(Boolean)));
     return {
       algorithm,
       input: { s, p },
       events: currentEvents,
-      callTree,
+      callTree: completed ? callTree : [],
       stateGraph,
       metrics,
       finalAnswer: finalAnswerValue,
@@ -281,9 +291,10 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
     ensureExecutionBudget({ s, p, algorithm, calls, step, depth: nextDepth });
     const event = createEvent(type, state, description, { step, ...extra });
 
-    if (events.length < MAX_STREAM_EVENTS) {
-      events.push(event);
+    if (events.length >= MAX_STREAM_EVENTS) {
+      events.shift();
     }
+    events.push(event);
 
     if (typeof onEvent === 'function') {
       onEvent(event);
@@ -309,6 +320,13 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
       maxDepthReached = Math.max(maxDepthReached, nodeStack.length + 1);
       nodeStack[nodeStack.length - 1].children.push(node);
     } else {
+      if (callTree.length >= MAX_CALL_TREE_NODES) {
+        throw new ExecutionBudgetExceededError('Call tree exceeded configured budget', {
+          reason: 'call-tree',
+          callTreeSize: callTree.length,
+          maxCallTreeNodes: MAX_CALL_TREE_NODES,
+        });
+      }
       callTree.push(node);
     }
 

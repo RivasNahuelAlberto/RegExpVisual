@@ -16,7 +16,7 @@ export function runBottomUp({ s, p, stream = false, onEvent = null, onSnapshot =
   const dependencyMap = {};
   const orderMap = {};
   const stateCounts = new Map();
-  const MAX_STREAM_EVENTS = 2000;
+  const MAX_STREAM_EVENTS = 200;
   let step = 0;
   let maxDepthReached = 0;
 
@@ -76,9 +76,10 @@ export function runBottomUp({ s, p, stream = false, onEvent = null, onSnapshot =
       ...extra,
     };
 
-    if (events.length < MAX_STREAM_EVENTS) {
-      events.push(event);
+    if (events.length >= MAX_STREAM_EVENTS) {
+      events.shift();
     }
+    events.push(event);
 
     if (typeof onEvent === 'function') {
       onEvent(event);
