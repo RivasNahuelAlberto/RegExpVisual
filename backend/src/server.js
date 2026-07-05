@@ -45,6 +45,7 @@ app.get('/api/algorithms', (_req, res) => {
 });
 
 app.get('/api/run-stream', (req, res) => {
+  const startTime = Date.now();
   const s = String(req.query.s ?? '');
   const p = String(req.query.p ?? '');
   const algorithm = String(req.query.algorithm ?? 'memo');
@@ -70,6 +71,8 @@ app.get('/api/run-stream', (req, res) => {
     }
   };
 
+  console.log(`[regex-server] stream-start`, { algorithm, input: { s, p }, startedAt: new Date().toISOString() });
+
   Promise.resolve(runTrace({
     s,
     p,
@@ -84,6 +87,12 @@ app.get('/api/run-stream', (req, res) => {
     shouldAbort: () => clientDisconnected,
   }))
     .then((trace) => {
+      console.log(`[regex-server] stream-complete`, {
+        algorithm,
+        input: { s, p },
+        durationMs: Date.now() - startTime,
+        finalAnswer: trace.finalAnswer,
+      });
       if (!clientDisconnected) {
         sendStreamPayload({
           type: 'SUMMARY',
@@ -102,6 +111,12 @@ app.get('/api/run-stream', (req, res) => {
       res.end();
     })
     .catch((error) => {
+      console.error(`[regex-server] stream-error`, {
+        algorithm,
+        input: { s, p },
+        durationMs: Date.now() - startTime,
+        error: String(error),
+      });
       if (!clientDisconnected) {
         res.write(`data: ${JSON.stringify({ type: 'ERROR', error: String(error) })}\n\n`);
         res.end();

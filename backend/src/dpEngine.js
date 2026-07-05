@@ -1,3 +1,13 @@
+import { ensureExecutionBudget, ExecutionBudgetExceededError } from './guardrails.js';
+
+const logDpEvent = (message, details = {}) => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[regex-dp] ${message}`, details);
+    return;
+  }
+  console.log(`[regex-dp] ${message}`, JSON.stringify(details));
+};
+
 export function runBottomUp({ s, p, stream = false, onEvent = null, onSnapshot = null, shouldAbort = null }) {
   const events = [];
   const m = s.length;
@@ -8,6 +18,7 @@ export function runBottomUp({ s, p, stream = false, onEvent = null, onSnapshot =
   const stateCounts = new Map();
   const MAX_STREAM_EVENTS = 2000;
   let step = 0;
+  let maxDepthReached = 0;
 
   const buildSnapshot = (finalAnswerValue = null, completed = false) => ({
     algorithm: 'bottomup',
@@ -51,6 +62,8 @@ export function runBottomUp({ s, p, stream = false, onEvent = null, onSnapshot =
     }
 
     step += 1;
+    maxDepthReached = Math.max(maxDepthReached, 1);
+    ensureExecutionBudget({ s, p, algorithm: 'bottomup', calls: 1, step, depth: maxDepthReached, dpCells: (m + 1) * (n + 1) });
     const event = {
       id: `${type}-${step}`,
       step,
@@ -79,7 +92,8 @@ export function runBottomUp({ s, p, stream = false, onEvent = null, onSnapshot =
     }
   }
 
-  dp[m][n] = true;
+  try {
+    dp[m][n] = true;
   pushEvent('DP_START', { i: m, j: n }, 'initialize base case', { variables: { value: true } });
 
   for (let i = m; i >= 0; i -= 1) {
@@ -110,7 +124,26 @@ export function runBottomUp({ s, p, stream = false, onEvent = null, onSnapshot =
     }
   }
 
-  pushEvent('DP_FINISH', { i: 0, j: 0 }, 'dp finished', { variables: { value: dp[0][0] } });
+    pushEvent('DP_FINISH', { i: 0, j: 0 }, 'dp finished', { variables: { value: dp[0][0] } });
+  } catch (error) {
+    if (error instanceof ExecutionBudgetExceededError) {
+      logDpEvent('execution-budget-exceeded', {
+        algorithm: 'bottomup',
+        input: { s, p },
+        details: error.details,
+      });
+      throw error;
+    }
+    throw error;
+  }
+
+  logDpEvent('dp-completed', {
+    algorithm: 'bottomup',
+    input: { s: s.length, p: p.length },
+    steps: step,
+    maxDepthReached,
+    eventCount: events.length,
+  });
 
   const uniqueStates = stateCounts.size;
   const totalStateVisits = Array.from(stateCounts.values()).reduce((sum, value) => sum + value, 0);

@@ -1,4 +1,5 @@
 import { createEvent } from '../../shared/types.js';
+import { ensureExecutionBudget, ExecutionBudgetExceededError } from './guardrails.js';
 
 const stateKey = ({ i, j }) => `${i},${j}`;
 
@@ -214,6 +215,14 @@ const computeTraceMetrics = ({ events, stateCounts, analyticsTimeline, callTree,
   };
 };
 
+const logTraceEvent = (message, details = {}) => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[regex-trace] ${message}`, details);
+    return;
+  }
+  console.log(`[regex-trace] ${message}`, JSON.stringify(details));
+};
+
 export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent = null, onSnapshot = null, shouldAbort = null }) {
   const events = [];
   const memo = algorithm === 'memo' ? new Map() : null;
@@ -223,6 +232,7 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
   const MAX_STREAM_EVENTS = 2000;
   let calls = 0;
   let step = 0;
+  let maxDepthReached = 0;
 
   const buildSnapshot = (finalAnswerValue = null, completed = false) => {
     const currentEvents = events.slice(0, MAX_STREAM_EVENTS);
@@ -266,6 +276,9 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
     }
 
     step += 1;
+    const nextDepth = nodeStack.length + 1;
+    maxDepthReached = Math.max(maxDepthReached, nextDepth);
+    ensureExecutionBudget({ s, p, algorithm, calls, step, depth: nextDepth });
     const event = createEvent(type, state, description, { step, ...extra });
 
     if (events.length < MAX_STREAM_EVENTS) {
@@ -288,10 +301,12 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
 
   function isMatch(i, j) {
     calls += 1;
+    ensureExecutionBudget({ s, p, algorithm, calls, step, depth: nodeStack.length + 1 });
     const key = `${i},${j}`;
     const node = { id: `${i},${j}`, state: { i, j }, children: [], result: null, key, memoHit: false, critical: false };
 
     if (nodeStack.length > 0) {
+      maxDepthReached = Math.max(maxDepthReached, nodeStack.length + 1);
       nodeStack[nodeStack.length - 1].children.push(node);
     } else {
       callTree.push(node);
@@ -366,9 +381,31 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
     return isCritical;
   }
 
-  const finalAnswer = isMatch(0, 0);
+  let finalAnswer;
+  try {
+    finalAnswer = isMatch(0, 0);
+  } catch (error) {
+    if (error instanceof ExecutionBudgetExceededError) {
+      logTraceEvent('execution-budget-exceeded', {
+        algorithm,
+        input: { s, p },
+        details: error.details,
+      });
+      throw error;
+    }
+    throw error;
+  }
   callTree.forEach((root) => {
     markCriticalPath(root);
+  });
+
+  logTraceEvent('trace-completed', {
+    algorithm,
+    input: { s: s.length, p: p.length },
+    calls,
+    steps: step,
+    maxDepthReached,
+    eventCount: events.length,
   });
 
   const memoHits = events.filter((event) => event.type === 'MEMO_HIT').length;

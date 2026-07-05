@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { runAlgorithm } from '../src/traceEngine.js';
+import { ExecutionBudgetExceededError } from '../src/guardrails.js';
 
 test('runAlgorithm returns a trace with a final answer for a known case', () => {
   const trace = runAlgorithm({ s: 'aa', p: 'a*', algorithm: 'memo' });
@@ -54,4 +55,11 @@ test('streaming snapshots include incremental metrics and call tree state', () =
   assert.ok(snapshots[0].metrics);
   assert.ok(Array.isArray(snapshots[0].callTree));
   assert.ok(Number.isInteger(snapshots[0].metrics.steps));
+});
+
+test('large inputs are rejected by the execution guardrails', () => {
+  assert.throws(
+    () => runAlgorithm({ s: 'a'.repeat(500), p: 'a'.repeat(500), algorithm: 'memo' }),
+    (error) => error instanceof ExecutionBudgetExceededError,
+  );
 });
