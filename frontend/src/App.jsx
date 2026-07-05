@@ -69,6 +69,100 @@ const getCallTreeMetrics = (callTree) => {
 
 const formatPercent = (value) => `${Math.round(value * 100)}%`;
 
+const metricHelpContent = {
+  stateExploration: {
+    title: 'State exploration',
+    intro: 'These metrics explain how much of the search space the algorithm actually visited and whether it revisited states unnecessarily.',
+    items: [
+      { name: 'Unique states', description: 'Counts distinct (i, j) states reached during execution.', how: 'The backend collects every state key from the trace and deduplicates it after the run.' },
+      { name: 'Repeated visits', description: 'Shows how often the same state was reached again after it had already been seen.', how: 'Each state occurrence is counted from the event stream and the repeated counts are derived from the total visits minus the unique states.' },
+      { name: 'Repeated ratio', description: 'Measures how much of the work was redundant.', how: 'It is computed as repeated visits divided by total visits.' },
+      { name: 'Coverage', description: 'Shows what fraction of the complete state space was actually explored.', how: 'It uses the formula visited states divided by the maximum possible states, (m + 1) × (n + 1).' },
+    ],
+  },
+  recursionTree: {
+    title: 'Recursion tree',
+    intro: 'These values describe the shape of the recursive exploration and how deeply the search expanded.',
+    items: [
+      { name: 'Max depth', description: 'Records the deepest recursion level reached during execution.', how: 'It is derived from the maximum nesting level observed while the call tree is built.' },
+      { name: 'Avg depth', description: 'Reflects the average nesting level across all recursive calls.', how: 'It is computed from the total depth of all nodes divided by the number of nodes in the call tree.' },
+      { name: 'Avg branching', description: 'Measures how many children each internal recursive call generated on average.', how: 'The backend divides total children by the number of internal nodes.' },
+      { name: 'Leaf nodes', description: 'Shows how many recursive calls ended without creating more children.', how: 'Leaf count comes directly from the terminal nodes in the call tree.' },
+      { name: 'Critical path', description: 'Indicates the length of the path that determines the final successful outcome.', how: 'The backend marks the critical path from the successful branches and counts the states in that path.' },
+    ],
+  },
+  problemProfile: {
+    title: 'Problem profile',
+    intro: 'These values summarize the structure of the input pattern so the algorithmic complexity is easier to interpret.',
+    items: [
+      { name: 'Pattern length', description: 'Shows the length of the regex pattern supplied to the algorithm.', how: 'It is taken directly from the input pattern string.' },
+      { name: 'Star density', description: 'Measures how often the * operator appears in the pattern.', how: 'It is calculated as the count of * characters divided by the pattern length.' },
+      { name: 'Dot density', description: 'Measures how often the . wildcard appears in the pattern.', how: 'It is calculated as the count of . characters divided by the pattern length.' },
+      { name: 'Difficulty score', description: 'Provides a rough heuristic for how hard the pattern is likely to be to explore.', how: 'It is derived from the pattern structure, including star density, dot density, and overall length.' },
+    ],
+  },
+  memoization: {
+    title: 'Memoization',
+    intro: 'These metrics make the benefit of caching visible by distinguishing successful reuse from wasted recomputation.',
+    items: [
+      { name: 'Hits', description: 'Counts how many times the algorithm reused a cached state.', how: 'Each memo hit event emitted by the backend increments this counter.' },
+      { name: 'Misses', description: 'Counts how many states still had to be solved from scratch.', how: 'It is computed as total calls minus memo hits.' },
+      { name: 'Resolved states', description: 'Shows how many distinct states were actually solved and stored.', how: 'The backend tracks the set of resolved state keys and reports its size.' },
+      { name: 'Reuse percentage', description: 'Shows how much of the resolved state space was reused after being stored.', how: 'It is computed as memo hits divided by resolved states.' },
+      { name: 'Hit rate', description: 'Measures how effective the cache was during the run.', how: 'It is computed as memo hits divided by memo hits plus memo misses.' },
+      { name: 'Cache utilization', description: 'Shows how much of the available cache space was actually used.', how: 'It compares the number of stored states with the total possible state-space positions.' },
+      { name: 'Reuse factor', description: 'Shows how many times each cached state was reused on average.', how: 'It is calculated as total state visits divided by the number of unique states.' },
+    ],
+  },
+  comparison: {
+    title: 'Comparison',
+    intro: 'These values summarize how memoization changes the amount of work required compared with the non-memoized version.',
+    items: [
+      { name: 'Memo vs Backtracking', description: 'Shows the relative speedup in terms of call count.', how: 'It is computed as backtracking calls divided by memoized calls.' },
+      { name: 'Calls avoided', description: 'Shows how many recursive calls were skipped thanks to memoization.', how: 'It is derived from the difference between the two algorithms’ call counts.' },
+      { name: 'Call reduction', description: 'Expresses the same improvement as a percentage.', how: 'It is computed as the share of calls removed relative to the backtracking baseline.' },
+      { name: 'Best calls', description: 'Highlights which algorithm used the fewest calls for the current input.', how: 'It is selected by comparing the call metrics across the available traces.' },
+      { name: 'Best steps', description: 'Highlights which algorithm required the fewest execution steps.', how: 'It is selected by comparing the step metrics across the available traces.' },
+    ],
+  },
+  visualAnalytics: {
+    title: 'Visual analytics',
+    intro: 'The charts complement the numeric metrics by showing how the execution evolves over time.',
+    items: [
+      { name: 'Calls and unique states', description: 'Shows whether the algorithm is doing a lot of work without discovering many new states.', how: 'The frontend renders the backend timeline for cumulative calls and discovered states side by side.' },
+      { name: 'Memo hits', description: 'Shows when the cache begins to pay off during execution.', how: 'The timeline is built from the cumulative memo-hit events emitted by the backend.' },
+      { name: 'Coverage and depth', description: 'Shows how quickly the search space becomes covered and how deeply the recursion grows.', how: 'These values are computed from the trace events and the current recursion depth recorded during execution.' },
+      { name: 'Branching activity', description: 'Highlights where the search tree expands the most.', how: 'The backend derives branching data from the recursive call tree.' },
+    ],
+  },
+};
+
+function MetricHelpModal({ section, onClose }) {
+  const content = metricHelpContent[section];
+  if (!content) return null;
+
+  return (
+    <div className="metric-help-backdrop" onClick={onClose}>
+      <div className="metric-help-modal" onClick={(event) => event.stopPropagation()}>
+        <div className="metric-help-header">
+          <h3>{content.title}</h3>
+          <button type="button" onClick={onClose} className="metric-help-close">×</button>
+        </div>
+        <p>{content.intro}</p>
+        <ul className="metric-help-list">
+          {content.items.map((item) => (
+            <li key={item.name} className="metric-help-item">
+              <strong>{item.name}</strong>
+              <p>{item.description}</p>
+              <span>How it is obtained: {item.how}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 const getAlgorithmLimits = (algorithm) => {
   switch (algorithm) {
     case 'bottomup':
@@ -169,6 +263,7 @@ export default function App() {
   const [progressMessage, setProgressMessage] = useState('');
   const [limitModal, setLimitModal] = useState(null);
   const [pendingSsePrompt, setPendingSsePrompt] = useState(null);
+  const [helpModal, setHelpModal] = useState(null);
   const eventSourceRef = useRef(null);
 
   const timeline = useMemo(() => result?.events ?? [], [result]);
@@ -616,7 +711,10 @@ export default function App() {
                 <>
                   <div className="analytics-grid">
                     <div className="metric-card">
-                      <h3>State exploration</h3>
+                      <div className="metric-card-header">
+                        <h3>State exploration</h3>
+                        <button type="button" className="metric-help-trigger" onClick={() => setHelpModal('stateExploration')}>Help</button>
+                      </div>
                       <p><strong>Unique states:</strong> {analytics.uniqueStates}</p>
                       <p><strong>Repeated visits:</strong> {analytics.repeatedVisits}</p>
                       <p><strong>Repeated ratio:</strong> {formatPercent(analytics.repeatedRatio)}</p>
@@ -624,7 +722,10 @@ export default function App() {
                     </div>
 
                     <div className="metric-card">
-                      <h3>Recursion tree</h3>
+                      <div className="metric-card-header">
+                        <h3>Recursion tree</h3>
+                        <button type="button" className="metric-help-trigger" onClick={() => setHelpModal('recursionTree')}>Help</button>
+                      </div>
                       <p><strong>Max depth:</strong> {analytics.treeMetrics.maxDepth}</p>
                       <p><strong>Avg depth:</strong> {analytics.treeMetrics.avgDepth}</p>
                       <p><strong>Avg branching:</strong> {analytics.treeMetrics.avgBranching}</p>
@@ -633,7 +734,10 @@ export default function App() {
                     </div>
 
                     <div className="metric-card">
-                      <h3>Problem profile</h3>
+                      <div className="metric-card-header">
+                        <h3>Problem profile</h3>
+                        <button type="button" className="metric-help-trigger" onClick={() => setHelpModal('problemProfile')}>Help</button>
+                      </div>
                       <p><strong>Pattern length:</strong> {analytics.problemMetrics.patternLength}</p>
                       <p><strong>Star density:</strong> {formatPercent(analytics.problemMetrics.starDensity)}</p>
                       <p><strong>Dot density:</strong> {formatPercent(analytics.problemMetrics.dotDensity)}</p>
@@ -642,7 +746,10 @@ export default function App() {
 
                     {result.algorithm === 'memo' ? (
                       <div className="metric-card">
-                        <h3>Memoization</h3>
+                        <div className="metric-card-header">
+                          <h3>Memoization</h3>
+                          <button type="button" className="metric-help-trigger" onClick={() => setHelpModal('memoization')}>Help</button>
+                        </div>
                         <p><strong>Hits:</strong> {analytics.memoHits}</p>
                         <p><strong>Misses:</strong> {analytics.memoMisses}</p>
                         <p><strong>Resolved states:</strong> {analytics.resolvedStates}</p>
@@ -657,7 +764,10 @@ export default function App() {
                   {analytics.comparisonMetrics.speedupMemo !== null ? (
                     <div className="comparison-grid">
                       <div className="metric-card">
-                        <h3>Comparison</h3>
+                        <div className="metric-card-header">
+                          <h3>Comparison</h3>
+                          <button type="button" className="metric-help-trigger" onClick={() => setHelpModal('comparison')}>Help</button>
+                        </div>
                         <p><strong>Memo vs Backtracking:</strong> {analytics.comparisonMetrics.speedupMemo}x faster</p>
                         <p><strong>Calls avoided:</strong> {analytics.comparisonMetrics.callsAvoided}</p>
                         <p><strong>Call reduction:</strong> {formatPercent(analytics.comparisonMetrics.callsReduction)}</p>
@@ -674,13 +784,18 @@ export default function App() {
 
             {result.metrics?.analytics ? (
               <section className="panel analytics-panel">
-                <h2>Visual Analytics</h2>
+                <div className="metric-card-header">
+                  <h2>Visual Analytics</h2>
+                  <button type="button" className="metric-help-trigger" onClick={() => setHelpModal('visualAnalytics')}>Help</button>
+                </div>
                 <AnalyticsCharts analytics={result.metrics.analytics} algorithm={result.algorithm} comparison={comparison} />
               </section>
             ) : null}
           </section>
         </>
       ) : null}
+
+      {helpModal ? <MetricHelpModal section={helpModal} onClose={() => setHelpModal(null)} /> : null}
     </div>
   );
 }
