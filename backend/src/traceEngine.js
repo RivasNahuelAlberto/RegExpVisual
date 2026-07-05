@@ -214,14 +214,51 @@ const computeTraceMetrics = ({ events, stateCounts, analyticsTimeline, callTree,
   };
 };
 
-export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent = null, shouldAbort = null }) {
-  const events = stream ? null : [];
+export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent = null, onSnapshot = null, shouldAbort = null }) {
+  const events = [];
   const memo = algorithm === 'memo' ? new Map() : null;
   const callTree = [];
   const nodeStack = [];
   const stateCounts = new Map();
+  const MAX_STREAM_EVENTS = 2000;
   let calls = 0;
   let step = 0;
+
+  const buildSnapshot = (finalAnswerValue = null, completed = false) => {
+    const currentEvents = events.slice(0, MAX_STREAM_EVENTS);
+    const metrics = computeTraceMetrics({
+      events: currentEvents,
+      stateCounts,
+      analyticsTimeline: null,
+      callTree,
+      sLength: s.length,
+      pLength: p.length,
+      calls,
+      memoHits: currentEvents.filter((event) => event.type === 'MEMO_HIT').length,
+      algorithm,
+      pattern: p,
+    });
+    const stateGraph = Array.from(new Set(currentEvents.map((event) => `${event.state?.i ?? ''},${event.state?.j ?? ''}`).filter(Boolean)));
+    return {
+      algorithm,
+      input: { s, p },
+      events: currentEvents,
+      callTree,
+      stateGraph,
+      metrics,
+      finalAnswer: finalAnswerValue,
+      streaming: {
+        completed,
+        truncated: events.length > MAX_STREAM_EVENTS,
+      },
+    };
+  };
+
+  const emitSnapshot = (finalAnswerValue = null, completed = false) => {
+    if (typeof onSnapshot === 'function') {
+      onSnapshot(buildSnapshot(finalAnswerValue, completed));
+    }
+  };
 
   function pushEvent(type, state, description, extra = {}) {
     if (typeof shouldAbort === 'function' && shouldAbort()) {
@@ -231,13 +268,15 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
     step += 1;
     const event = createEvent(type, state, description, { step, ...extra });
 
-    if (events) {
+    if (events.length < MAX_STREAM_EVENTS) {
       events.push(event);
     }
 
     if (typeof onEvent === 'function') {
       onEvent(event);
     }
+
+    emitSnapshot();
 
     if (state && Number.isInteger(state.i) && Number.isInteger(state.j)) {
       const key = `${state.i},${state.j}`;
@@ -332,7 +371,7 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
     markCriticalPath(root);
   });
 
-  const memoHits = events ? events.filter((event) => event.type === 'MEMO_HIT').length : Array.from(stateCounts.values()).filter((count) => count > 1).length;
+  const memoHits = events.filter((event) => event.type === 'MEMO_HIT').length;
   const metrics = computeTraceMetrics({
     events,
     stateCounts,
@@ -350,14 +389,13 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
     algorithm,
     input: { s, p },
     callTree,
-    stateGraph: Array.from(new Set((events ?? []).map((event) => `${event.state.i},${event.state.j}`))),
+    stateGraph: Array.from(new Set(events.map((event) => `${event.state?.i ?? ''},${event.state?.j ?? ''}`).filter(Boolean))),
     metrics,
     finalAnswer,
+    events,
   };
 
-  if (!stream) {
-    result.events = events;
-  }
+  emitSnapshot(finalAnswer, true);
 
   return result;
 }

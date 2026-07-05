@@ -78,16 +78,24 @@ app.get('/api/run-stream', (req, res) => {
     onEvent: (event) => {
       sendStreamPayload({ type: 'EVENT', event });
     },
+    onSnapshot: (snapshot) => {
+      sendStreamPayload({ type: 'SNAPSHOT', snapshot });
+    },
     shouldAbort: () => clientDisconnected,
   }))
     .then((trace) => {
       if (!clientDisconnected) {
         sendStreamPayload({
           type: 'SUMMARY',
-          algorithm: trace.algorithm,
-          input: trace.input,
-          finalAnswer: trace.finalAnswer,
-          metrics: trace.metrics,
+          snapshot: {
+            algorithm: trace.algorithm,
+            input: trace.input,
+            finalAnswer: trace.finalAnswer,
+            metrics: trace.metrics,
+            events: trace.events,
+            callTree: trace.callTree,
+            stateGraph: trace.stateGraph,
+          },
         });
         sendStreamPayload({ type: 'COMPLETE' });
       }

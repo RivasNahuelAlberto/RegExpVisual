@@ -273,11 +273,24 @@ export default function App() {
               setCurrentStep(Math.min(incrementalEvents.length, 1));
               setProgressMessage(`Received ${incrementalEvents.length} events`);
             }
+            if (payload.type === 'SNAPSHOT') {
+              runningResult = {
+                ...runningResult,
+                ...payload.snapshot,
+                metrics: payload.snapshot?.metrics ?? runningResult.metrics,
+                finalAnswer: payload.snapshot?.finalAnswer ?? runningResult.finalAnswer,
+              };
+              setResult(runningResult);
+              setSelectedEvent(runningResult.events?.[0] ?? null);
+              setCurrentStep(Math.min(runningResult.events?.length ?? 0, 1));
+              setProgressMessage(`Received ${runningResult.events?.length ?? 0} events`);
+            }
             if (payload.type === 'SUMMARY') {
               runningResult = {
                 ...runningResult,
-                metrics: payload.metrics,
-                finalAnswer: payload.finalAnswer,
+                ...(payload.snapshot ?? {}),
+                metrics: payload.snapshot?.metrics ?? runningResult.metrics,
+                finalAnswer: payload.snapshot?.finalAnswer ?? runningResult.finalAnswer,
               };
               setResult(runningResult);
             }

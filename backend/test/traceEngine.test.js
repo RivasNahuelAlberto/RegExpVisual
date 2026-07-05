@@ -33,20 +33,25 @@ test('builds a concrete call tree for backtracking and memoization', () => {
   assert.ok(countNodes(backtracking.callTree) >= countNodes(memoized.callTree));
 });
 
-test('memoized call tree nodes include memoHit and critical flags', () => {
+test('memoized runs expose reuse in the metrics payload', () => {
   const memoized = runAlgorithm({ s: 'aaa', p: 'a*a*', algorithm: 'memo' });
-  const visited = [];
+  assert.ok(memoized.metrics.reuseFactor > 1, 'Expected memoized runs to show repeated-state reuse');
+  assert.ok(memoized.metrics.repeatedVisits > 0, 'Expected memoized runs to record repeated state visits');
+});
 
-  const walk = (nodes) => {
-    nodes.forEach((node) => {
-      visited.push(node);
-      if (node.children?.length) {
-        walk(node.children);
-      }
-    });
-  };
+test('streaming snapshots include incremental metrics and call tree state', () => {
+  const snapshots = [];
+  const trace = runAlgorithm({
+    s: 'aa',
+    p: 'a*',
+    algorithm: 'memo',
+    stream: true,
+    onSnapshot: (snapshot) => snapshots.push(snapshot),
+  });
 
-  walk(memoized.callTree);
-  assert.ok(visited.some((node) => node.memoHit === true), 'Expected at least one memo hit node in the call tree');
-  assert.ok(visited.some((node) => node.critical === true), 'Expected at least one critical path node in the call tree');
+  assert.ok(snapshots.length > 0, 'Expected at least one streaming snapshot');
+  assert.ok(trace.finalAnswer === true);
+  assert.ok(snapshots[0].metrics);
+  assert.ok(Array.isArray(snapshots[0].callTree));
+  assert.ok(Number.isInteger(snapshots[0].metrics.steps));
 });

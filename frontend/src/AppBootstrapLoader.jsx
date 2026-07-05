@@ -44,7 +44,7 @@ export default function AppBootstrapLoader({ children }) {
           <div className="bootstrap-logo"></div>
           <div className="bootstrap-copy">
             <h1>Alpha</h1>
-            <p>Estableciendo conexión con el backend...</p>
+            <p>Getting everything ready...</p>
           </div>
           <div className="bootstrap-spinner">
             <div className="spinner-ring" />
@@ -56,12 +56,12 @@ export default function AppBootstrapLoader({ children }) {
 
   return (
     <div className="app-shell">
-      {showLocalLoader ? <div className="local-loader">Cargando datos del backend…</div> : null}
+      {showLocalLoader ? <div className="local-loader">Almost there…</div> : null}
       {status === LOADER_STATES.FAILED ? (
         <div className="bootstrap-fail">
-          <h2>Backend no disponible</h2>
+          <h2>Something went wrong</h2>
           <p>{error}</p>
-          <p>Recargando en unos segundos...</p>
+          <p>Reloading in a few seconds...</p>
         </div>
       ) : children}
     </div>

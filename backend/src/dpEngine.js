@@ -1,12 +1,49 @@
-export function runBottomUp({ s, p, stream = false, onEvent = null, shouldAbort = null }) {
-  const events = stream ? null : [];
+export function runBottomUp({ s, p, stream = false, onEvent = null, onSnapshot = null, shouldAbort = null }) {
+  const events = [];
   const m = s.length;
   const n = p.length;
   const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(false));
   const dependencyMap = {};
   const orderMap = {};
   const stateCounts = new Map();
+  const MAX_STREAM_EVENTS = 2000;
   let step = 0;
+
+  const buildSnapshot = (finalAnswerValue = null, completed = false) => ({
+    algorithm: 'bottomup',
+    input: { s, p },
+    events: events.slice(0, MAX_STREAM_EVENTS),
+    dp,
+    dependencies: dependencyMap,
+    order: orderMap,
+    metrics: {
+      calls: 1,
+      steps: step,
+      depth: Math.max(m, n),
+      uniqueStates: stateCounts.size,
+      totalStateVisits: Array.from(stateCounts.values()).reduce((sum, value) => sum + value, 0),
+      repeatedVisits: Math.max(0, Array.from(stateCounts.values()).reduce((sum, value) => sum + value, 0) - stateCounts.size),
+      repeatedStates: Array.from(stateCounts.entries())
+        .map(([state, count]) => ({ state, count }))
+        .filter((entry) => entry.count > 1)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5),
+      possibleStates: (m + 1) * (n + 1),
+      coverage: stateCounts.size / ((m + 1) * (n + 1)),
+      reuseFactor: stateCounts.size ? Number((Array.from(stateCounts.values()).reduce((sum, value) => sum + value, 0) / stateCounts.size).toFixed(2)) : 0,
+    },
+    finalAnswer: finalAnswerValue,
+    streaming: {
+      completed,
+      truncated: events.length > MAX_STREAM_EVENTS,
+    },
+  });
+
+  const emitSnapshot = (finalAnswerValue = null, completed = false) => {
+    if (typeof onSnapshot === 'function') {
+      onSnapshot(buildSnapshot(finalAnswerValue, completed));
+    }
+  };
 
   function pushEvent(type, state, description, extra = {}) {
     if (typeof shouldAbort === 'function' && shouldAbort()) {
@@ -26,13 +63,15 @@ export function runBottomUp({ s, p, stream = false, onEvent = null, shouldAbort 
       ...extra,
     };
 
-    if (events) {
+    if (events.length < MAX_STREAM_EVENTS) {
       events.push(event);
     }
 
     if (typeof onEvent === 'function') {
       onEvent(event);
     }
+
+    emitSnapshot();
 
     if (state && Number.isInteger(state.i) && Number.isInteger(state.j)) {
       const key = `${state.i},${state.j}`;
@@ -104,11 +143,10 @@ export function runBottomUp({ s, p, stream = false, onEvent = null, shouldAbort 
       reuseFactor,
     },
     finalAnswer: dp[0][0],
+    events,
   };
 
-  if (!stream) {
-    result.events = events;
-  }
+  emitSnapshot(dp[0][0], true);
 
   return result;
 }
