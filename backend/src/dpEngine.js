@@ -56,7 +56,7 @@ const buildAnalyticsTimeline = ({ events, possibleStates, algorithm }) => {
     const uniqueValue = uniqueStates.size;
     const coverageValue = possibleStates ? uniqueValue / possibleStates : 0;
 
-    calls.push({ step, value: cumulativeCalls });
+    //calls.push({ step, value: cumulativeCalls });
     uniqueStatesSeries.push({ step, value: uniqueValue });
     memoHitsSeries.push({ step, value: cumulativeMemoHits });
     coverageSeries.push({ step, value: coverageValue });
@@ -102,7 +102,7 @@ export function runBottomUp({ s, p, stream = false, onEvent = null, onSnapshot =
       dependencies: dependencyMap,
       order: orderMap,
       metrics: {
-        calls: events.filter((event) => event.type === 'DP_CELL').length,
+        calls: 1,
         steps: step,
         depth: Math.max(m, n),
         uniqueStates: stateCounts.size,
@@ -246,7 +246,7 @@ export function runBottomUp({ s, p, stream = false, onEvent = null, onSnapshot =
     dependencies: dependencyMap,
     order: orderMap,
     metrics: {
-      calls: events.filter((event) => event.type === 'DP_CELL').length,
+      calls: 1,
       steps: step,
       depth: Math.max(m, n),
       uniqueStates,
