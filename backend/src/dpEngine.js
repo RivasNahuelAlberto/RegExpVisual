@@ -35,9 +35,6 @@ const buildAnalyticsTimeline = ({ events, possibleStates, algorithm }) => {
   const cacheStatesSeries = [];
 
   for (const event of events ?? []) {
-    if (event.type === 'DP_CELL') {
-      cumulativeCalls += 1;
-    }
 
     if (event.type === 'MEMO_HIT') {
       cumulativeMemoHits += 1;
