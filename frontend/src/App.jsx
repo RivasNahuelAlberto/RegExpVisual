@@ -515,6 +515,20 @@ export default function App() {
   };
 
   useEffect(() => {
+    if (!timeline.length) {
+      setSelectedEvent(null);
+      return;
+    }
+
+    const targetStep = Math.max(0, currentStep);
+    const nextEvent = timeline.filter((event) => (event?.step ?? 0) <= targetStep).at(-1) ?? null;
+
+    if (nextEvent?.id !== selectedEvent?.id) {
+      setSelectedEvent(nextEvent);
+    }
+  }, [currentStep, selectedEvent?.id, timeline]);
+
+  useEffect(() => {
     if (!isPlaying || !timeline.length) {
       return undefined;
     }
