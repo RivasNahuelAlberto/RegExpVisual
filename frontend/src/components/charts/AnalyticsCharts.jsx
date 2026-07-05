@@ -34,6 +34,21 @@ const palette = {
   branchingPoints: '#2dd4bf',
 };
 
+const normalizeToPercent = (value, maxValue) => {
+  if (!Number.isFinite(value) || !Number.isFinite(maxValue) || maxValue <= 0) {
+    return 0;
+  }
+  return Math.min(100, Math.max(0, Math.round((value / maxValue) * 100)));
+};
+
+const invertToPercent = (value, maxValue) => {
+  if (!Number.isFinite(value) || !Number.isFinite(maxValue) || maxValue <= 0) {
+    return 0;
+  }
+  const normalized = Math.min(1, Math.max(0, value / maxValue));
+  return Math.min(100, Math.max(0, Math.round((1 - normalized) * 100)));
+};
+
 const chartHelpKeyMap = {
   'Recursive Calls Evolution': 'recursiveCallsEvolution',
   'Unique States Discovery': 'uniqueStatesDiscovery',
@@ -83,12 +98,12 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison, onHe
   })) ?? [];
 
   const radarData = [
-    { metric: 'Calls', backtracking: 0, memo: 0, bottomup: 0 },
-    { metric: 'Steps', backtracking: 0, memo: 0, bottomup: 0 },
-    { metric: 'Redundancy', backtracking: 0, memo: 0, bottomup: 0 },
-    { metric: 'Coverage (%)', backtracking: 0, memo: 0, bottomup: 0 },
-    { metric: 'Memory (reuse)', backtracking: 0, memo: 0, bottomup: 0 },
-    { metric: 'Efficiency (%)', backtracking: 0, memo: 0, bottomup: 0 },
+    { metric: 'Calls (lower is better)', backtracking: 0, memo: 0, bottomup: 0 },
+    { metric: 'Steps (lower is better)', backtracking: 0, memo: 0, bottomup: 0 },
+    { metric: 'Redundancy (lower is better)', backtracking: 0, memo: 0, bottomup: 0 },
+    { metric: 'Coverage (higher is better)', backtracking: 0, memo: 0, bottomup: 0 },
+    { metric: 'Memory reuse (higher is better)', backtracking: 0, memo: 0, bottomup: 0 },
+    { metric: 'Efficiency (higher is better)', backtracking: 0, memo: 0, bottomup: 0 },
   ];
 
   if (comparisonMetrics.length) {
@@ -97,35 +112,34 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison, onHe
       return acc;
     }, {});
     
-    // Calculate max values for normalization
     const maxCalls = Math.max(...comparisonMetrics.map((t) => t.calls || 0), 1);
     const maxSteps = Math.max(...comparisonMetrics.map((t) => t.steps || 0), 1);
     const maxRedundancy = Math.max(...comparisonMetrics.map((t) => t.redundancy || 0), 1);
-    
-    // Normalize and populate radarData
-    radarData[0].backtracking = Math.round((byAlgorithm.backtracking?.calls ?? 0) / maxCalls * 100);
-    radarData[0].memo = Math.round((byAlgorithm.memo?.calls ?? 0) / maxCalls * 100);
-    radarData[0].bottomup = Math.round((byAlgorithm.bottomup?.calls ?? 0) / maxCalls * 100);
-    
-    radarData[1].backtracking = Math.round((byAlgorithm.backtracking?.steps ?? 0) / maxSteps * 100);
-    radarData[1].memo = Math.round((byAlgorithm.memo?.steps ?? 0) / maxSteps * 100);
-    radarData[1].bottomup = Math.round((byAlgorithm.bottomup?.steps ?? 0) / maxSteps * 100);
-    
-    radarData[2].backtracking = Math.round((byAlgorithm.backtracking?.redundancy ?? 0) / maxRedundancy * 100);
-    radarData[2].memo = Math.round((byAlgorithm.memo?.redundancy ?? 0) / maxRedundancy * 100);
-    radarData[2].bottomup = Math.round((byAlgorithm.bottomup?.redundancy ?? 0) / maxRedundancy * 100);
-    
-    radarData[3].backtracking = Math.round((byAlgorithm.backtracking?.coverage ?? 0) * 100);
-    radarData[3].memo = Math.round((byAlgorithm.memo?.coverage ?? 0) * 100);
-    radarData[3].bottomup = Math.round((byAlgorithm.bottomup?.coverage ?? 0) * 100);
-    
-    radarData[4].backtracking = Math.round((byAlgorithm.backtracking?.memory ?? 0) / 5 * 100);
-    radarData[4].memo = Math.round((byAlgorithm.memo?.memory ?? 0) / 5 * 100);
-    radarData[4].bottomup = Math.round((byAlgorithm.bottomup?.memory ?? 0) / 5 * 100);
-    
-    radarData[5].backtracking = Math.round((byAlgorithm.backtracking?.memoEfficiency ?? 0) * 100);
-    radarData[5].memo = Math.round((byAlgorithm.memo?.memoEfficiency ?? 0) * 100);
-    radarData[5].bottomup = Math.round((byAlgorithm.bottomup?.memoEfficiency ?? 0) * 100);
+    const maxMemory = Math.max(...comparisonMetrics.map((t) => t.memory || 0), 1);
+
+    radarData[0].backtracking = invertToPercent(byAlgorithm.backtracking?.calls ?? 0, maxCalls);
+    radarData[0].memo = invertToPercent(byAlgorithm.memo?.calls ?? 0, maxCalls);
+    radarData[0].bottomup = invertToPercent(byAlgorithm.bottomup?.calls ?? 0, maxCalls);
+
+    radarData[1].backtracking = invertToPercent(byAlgorithm.backtracking?.steps ?? 0, maxSteps);
+    radarData[1].memo = invertToPercent(byAlgorithm.memo?.steps ?? 0, maxSteps);
+    radarData[1].bottomup = invertToPercent(byAlgorithm.bottomup?.steps ?? 0, maxSteps);
+
+    radarData[2].backtracking = invertToPercent(byAlgorithm.backtracking?.redundancy ?? 0, maxRedundancy);
+    radarData[2].memo = invertToPercent(byAlgorithm.memo?.redundancy ?? 0, maxRedundancy);
+    radarData[2].bottomup = invertToPercent(byAlgorithm.bottomup?.redundancy ?? 0, maxRedundancy);
+
+    radarData[3].backtracking = Math.round(Math.min(100, Math.max(0, (byAlgorithm.backtracking?.coverage ?? 0) * 100)));
+    radarData[3].memo = Math.round(Math.min(100, Math.max(0, (byAlgorithm.memo?.coverage ?? 0) * 100)));
+    radarData[3].bottomup = Math.round(Math.min(100, Math.max(0, (byAlgorithm.bottomup?.coverage ?? 0) * 100)));
+
+    radarData[4].backtracking = normalizeToPercent(byAlgorithm.backtracking?.memory ?? 0, maxMemory);
+    radarData[4].memo = normalizeToPercent(byAlgorithm.memo?.memory ?? 0, maxMemory);
+    radarData[4].bottomup = normalizeToPercent(byAlgorithm.bottomup?.memory ?? 0, maxMemory);
+
+    radarData[5].backtracking = Math.round(Math.min(100, Math.max(0, (byAlgorithm.backtracking?.memoEfficiency ?? 0) * 100)));
+    radarData[5].memo = Math.round(Math.min(100, Math.max(0, (byAlgorithm.memo?.memoEfficiency ?? 0) * 100)));
+    radarData[5].bottomup = Math.round(Math.min(100, Math.max(0, (byAlgorithm.bottomup?.memoEfficiency ?? 0) * 100)));
   }
 
   const patternDifficultyData = [
@@ -300,17 +314,22 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison, onHe
         title: 'Analytics Radar',
         onHelpClick,
         children: (
-          <ResponsiveContainer width="100%" height={320}>
-            <RadarChart data={radarData}>
-              <PolarGrid stroke="rgba(148, 163, 184, 0.15)" />
-              <PolarAngleAxis dataKey="metric" stroke="#cbd5e1" />
-              <PolarRadiusAxis stroke="#cbd5e1" />
-              <Tooltip contentStyle={{ background: '#020617', border: '1px solid rgba(148, 163, 184, 0.2)' }} />
-              <Radar name="Backtracking" dataKey="backtracking" stroke={palette.calls} fill={palette.calls} fillOpacity={0.2} />
-              <Radar name="Memo" dataKey="memo" stroke={palette.memoHits} fill={palette.memoHits} fillOpacity={0.2} />
-              <Radar name="Bottom-Up" dataKey="bottomup" stroke={palette.depth} fill={palette.depth} fillOpacity={0.2} />
-            </RadarChart>
-          </ResponsiveContainer>
+          <>
+            <p style={{ margin: '0 0 0.75rem', color: '#cbd5e1', fontSize: '0.9rem' }}>
+              Scores are normalized to 0–100%. Higher is better for coverage, memory reuse, and efficiency; lower is better for calls, steps, and redundancy.
+            </p>
+            <ResponsiveContainer width="100%" height={320}>
+              <RadarChart data={radarData}>
+                <PolarGrid stroke="rgba(148, 163, 184, 0.15)" />
+                <PolarAngleAxis dataKey="metric" stroke="#cbd5e1" />
+                <PolarRadiusAxis stroke="#cbd5e1" />
+                <Tooltip contentStyle={{ background: '#020617', border: '1px solid rgba(148, 163, 184, 0.2)' }} />
+                <Radar name="Backtracking" dataKey="backtracking" stroke={palette.calls} fill={palette.calls} fillOpacity={0.2} />
+                <Radar name="Memo" dataKey="memo" stroke={palette.memoHits} fill={palette.memoHits} fillOpacity={0.2} />
+                <Radar name="Bottom-Up" dataKey="bottomup" stroke={palette.depth} fill={palette.depth} fillOpacity={0.2} />
+              </RadarChart>
+            </ResponsiveContainer>
+          </>
         ),
       }) : null}
 
