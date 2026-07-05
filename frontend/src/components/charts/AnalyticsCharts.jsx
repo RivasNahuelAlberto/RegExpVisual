@@ -77,8 +77,6 @@ const renderCommonChart = ({ title, children, onHelpClick }) => (
 const timelineToData = (series) => series?.map(({ step, value }) => ({ step, value })) ?? [];
 
 export default function AnalyticsCharts({ analytics, algorithm, comparison, onHelpClick }) {
-  const isRecursiveAlgorithm = algorithm !== 'bottomup';
-  const isMemoAlgorithm = algorithm === 'memo';
   const callsData = timelineToData(analytics.timeline.calls);
   const uniqueStatesData = timelineToData(analytics.timeline.uniqueStates);
   const memoHitsData = timelineToData(analytics.timeline.memoHits);
@@ -153,7 +151,7 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison, onHe
 
   return (
     <div className="analytics-charts-grid">
-      {isRecursiveAlgorithm ? renderCommonChart({
+      {renderCommonChart({
         title: 'Recursive Calls Evolution',
         onHelpClick,
         children: (
@@ -167,9 +165,9 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison, onHe
             </LineChart>
           </ResponsiveContainer>
         ),
-      }) : null}
+      })}
 
-      {isRecursiveAlgorithm ? renderCommonChart({
+      {renderCommonChart({
         title: 'Unique States Discovery',
         onHelpClick,
         children: (
@@ -183,9 +181,9 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison, onHe
             </LineChart>
           </ResponsiveContainer>
         ),
-      }) : null}
+      })}
 
-      {isMemoAlgorithm ? renderCommonChart({
+      {algorithm === 'memo' ? renderCommonChart({
         title: 'Memoization Efficiency',
         onHelpClick,
         children: (
@@ -217,7 +215,7 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison, onHe
         ),
       })}
 
-      {isRecursiveAlgorithm ? renderCommonChart({
+      {renderCommonChart({
         title: 'Recursion Depth',
         onHelpClick,
         children: (
@@ -232,9 +230,9 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison, onHe
             </LineChart>
           </ResponsiveContainer>
         ),
-      }) : null}
+      })}
 
-      {isRecursiveAlgorithm ? renderCommonChart({
+      {renderCommonChart({
         title: 'Branching Activity',
         onHelpClick,
         children: (
@@ -248,9 +246,9 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison, onHe
             </BarChart>
           </ResponsiveContainer>
         ),
-      }) : null}
+      })}
 
-      {isRecursiveAlgorithm ? renderCommonChart({
+      {renderCommonChart({
         title: 'Calls vs Unique States',
         onHelpClick,
         children: (
@@ -269,9 +267,9 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison, onHe
             </LineChart>
           </ResponsiveContainer>
         ),
-      }) : null}
+      })}
 
-      {isMemoAlgorithm ? renderCommonChart({
+      {algorithm === 'memo' ? renderCommonChart({
         title: 'Calls vs Memo Hits',
         onHelpClick,
         children: (
@@ -312,7 +310,7 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison, onHe
         ),
       })}
 
-      {comparisonMetrics.length ? renderCommonChart({
+      {/* {comparisonMetrics.length ? renderCommonChart({
         title: 'Analytics Radar',
         onHelpClick,
         children: (
@@ -333,7 +331,7 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison, onHe
             </ResponsiveContainer>
           </>
         ),
-      }) : null}
+      }) : null} */}
 
       {algorithm === 'memo' ? renderCommonChart({
         title: 'Cache Utilization',
