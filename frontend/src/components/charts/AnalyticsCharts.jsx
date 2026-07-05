@@ -151,7 +151,7 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison, onHe
 
   return (
     <div className="analytics-charts-grid">
-      {renderCommonChart({
+      {algorithm !== 'bottomup' ? renderCommonChart({
         title: 'Recursive Calls Evolution',
         onHelpClick,
         children: (
@@ -165,7 +165,7 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison, onHe
             </LineChart>
           </ResponsiveContainer>
         ),
-      })}
+      }) : null}
 
       {renderCommonChart({
         title: 'Unique States Discovery',
@@ -215,7 +215,7 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison, onHe
         ),
       })}
 
-      {renderCommonChart({
+      {algorithm !== 'bottomup' ? renderCommonChart({
         title: 'Recursion Depth',
         onHelpClick,
         children: (
@@ -230,9 +230,9 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison, onHe
             </LineChart>
           </ResponsiveContainer>
         ),
-      })}
+      }) : null}
 
-      {renderCommonChart({
+      {algorithm !== 'bottomup' ? renderCommonChart({
         title: 'Branching Activity',
         onHelpClick,
         children: (
@@ -246,9 +246,9 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison, onHe
             </BarChart>
           </ResponsiveContainer>
         ),
-      })}
+      }) : null}
 
-      {renderCommonChart({
+      {algorithm !== 'bottomup' ? renderCommonChart({
         title: 'Calls vs Unique States',
         onHelpClick,
         children: (
@@ -267,7 +267,7 @@ export default function AnalyticsCharts({ analytics, algorithm, comparison, onHe
             </LineChart>
           </ResponsiveContainer>
         ),
-      })}
+      }) : null}
 
       {algorithm === 'memo' ? renderCommonChart({
         title: 'Calls vs Memo Hits',
