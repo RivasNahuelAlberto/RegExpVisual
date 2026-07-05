@@ -35,6 +35,9 @@ const buildAnalyticsTimeline = ({ events, possibleStates, algorithm }) => {
   const cacheStatesSeries = [];
 
   for (const event of events ?? []) {
+    if (event.type === 'DP_CELL') {
+      cumulativeCalls += 1;
+    }
 
     if (event.type === 'MEMO_HIT') {
       cumulativeMemoHits += 1;
@@ -56,7 +59,7 @@ const buildAnalyticsTimeline = ({ events, possibleStates, algorithm }) => {
     const uniqueValue = uniqueStates.size;
     const coverageValue = possibleStates ? uniqueValue / possibleStates : 0;
 
-    //calls.push({ step, value: cumulativeCalls });
+    calls.push({ step, value: cumulativeCalls });
     uniqueStatesSeries.push({ step, value: uniqueValue });
     memoHitsSeries.push({ step, value: cumulativeMemoHits });
     coverageSeries.push({ step, value: coverageValue });
@@ -85,11 +88,59 @@ export function runBottomUp({ s, p, stream = false, onEvent = null, onSnapshot =
   const MAX_STREAM_EVENTS = 200;
   let step = 0;
   let maxDepthReached = 0;
+  const timelineAccumulators = {
+    uniqueStates: new Set(),
+    storedStates: new Set(),
+    cumulativeCalls: 0,
+    cumulativeMemoHits: 0,
+    currentDepth: 0,
+    possibleStates: (m + 1) * (n + 1),
+  };
+  const analyticsTimeline = {
+    calls: [],
+    uniqueStates: [],
+    memoHits: [],
+    coverage: [],
+    depth: [],
+    storedStates: [],
+  };
+
+  const appendTimelinePoint = (event) => {
+    if (event.type === 'DP_CELL') {
+      timelineAccumulators.cumulativeCalls += 1;
+    }
+
+    if (event.type === 'MEMO_HIT') {
+      timelineAccumulators.cumulativeMemoHits += 1;
+    }
+
+    if (event.type === 'MEMO_STORE' && event.state) {
+      timelineAccumulators.storedStates.add(`${event.state.i},${event.state.j}`);
+    }
+
+    if (event.type === 'DP_CELL' && event.state && Number.isInteger(event.state.i) && Number.isInteger(event.state.j)) {
+      timelineAccumulators.currentDepth = 1;
+    }
+
+    if (event.state && Number.isInteger(event.state.i) && Number.isInteger(event.state.j)) {
+      timelineAccumulators.uniqueStates.add(`${event.state.i},${event.state.j}`);
+    }
+
+    const uniqueValue = timelineAccumulators.uniqueStates.size;
+    const coverageValue = timelineAccumulators.possibleStates ? uniqueValue / timelineAccumulators.possibleStates : 0;
+
+    analyticsTimeline.calls.push({ step: event.step, value: timelineAccumulators.cumulativeCalls });
+    analyticsTimeline.uniqueStates.push({ step: event.step, value: uniqueValue });
+    analyticsTimeline.memoHits.push({ step: event.step, value: timelineAccumulators.cumulativeMemoHits });
+    analyticsTimeline.coverage.push({ step: event.step, value: coverageValue });
+    analyticsTimeline.depth.push({ step: event.step, value: timelineAccumulators.currentDepth });
+    analyticsTimeline.storedStates.push({ step: event.step, value: timelineAccumulators.storedStates.size });
+  };
 
   const buildSnapshot = (finalAnswerValue = null, completed = false) => {
     const possibleStates = (m + 1) * (n + 1);
     const analytics = {
-      timeline: buildAnalyticsTimeline({ events, possibleStates, algorithm: 'bottomup' }),
+      timeline: analyticsTimeline,
       branchingActivity: [],
       patternDifficulty: createPatternDifficulty(p),
     };
@@ -161,6 +212,7 @@ export function runBottomUp({ s, p, stream = false, onEvent = null, onSnapshot =
       onEvent(event);
     }
 
+    appendTimelinePoint(event);
     emitSnapshot();
 
     if (state && Number.isInteger(state.i) && Number.isInteger(state.j)) {
@@ -234,7 +286,7 @@ export function runBottomUp({ s, p, stream = false, onEvent = null, onSnapshot =
     .slice(0, 5);
   const reuseFactor = uniqueStates ? Number((totalStateVisits / uniqueStates).toFixed(2)) : 0;
   const analytics = {
-    timeline: buildAnalyticsTimeline({ events, possibleStates, algorithm: 'bottomup' }),
+    timeline: analyticsTimeline,
     branchingActivity: [],
     patternDifficulty: createPatternDifficulty(p),
   };
@@ -246,7 +298,7 @@ export function runBottomUp({ s, p, stream = false, onEvent = null, onSnapshot =
     dependencies: dependencyMap,
     order: orderMap,
     metrics: {
-      calls: 1,
+      calls: analyticsTimeline.calls.at(-1)?.value ?? 0,
       steps: step,
       depth: Math.max(m, n),
       uniqueStates,
