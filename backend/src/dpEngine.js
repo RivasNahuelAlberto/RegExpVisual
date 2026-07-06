@@ -56,7 +56,7 @@ const buildAnalyticsTimeline = ({ events, possibleStates, algorithm }) => {
     const uniqueValue = uniqueStates.size;
     const coverageValue = possibleStates ? uniqueValue / possibleStates : 0;
 
-    //calls.push({ step, value: cumulativeCalls });
+    calls.push({ step, value: cumulativeCalls });
     uniqueStatesSeries.push({ step, value: uniqueValue });
     memoHitsSeries.push({ step, value: cumulativeMemoHits });
     coverageSeries.push({ step, value: coverageValue });
@@ -85,6 +85,7 @@ export function runBottomUp({ s, p, stream = false, onEvent = null, onSnapshot =
   const MAX_STREAM_EVENTS = 200;
   let step = 0;
   let maxDepthReached = 0;
+  let calls = 0;
   const timelineAccumulators = {
     uniqueStates: new Set(),
     storedStates: new Set(),
@@ -104,6 +105,7 @@ export function runBottomUp({ s, p, stream = false, onEvent = null, onSnapshot =
 
   const appendTimelinePoint = (event) => {
     if (event.type === 'DP_CELL') {
+      calls += 1;
       timelineAccumulators.cumulativeCalls += 1;
     }
 
@@ -126,7 +128,7 @@ export function runBottomUp({ s, p, stream = false, onEvent = null, onSnapshot =
     const uniqueValue = timelineAccumulators.uniqueStates.size;
     const coverageValue = timelineAccumulators.possibleStates ? uniqueValue / timelineAccumulators.possibleStates : 0;
 
-    //analyticsTimeline.calls.push({ step: event.step, value: timelineAccumulators.cumulativeCalls });
+    analyticsTimeline.calls.push({ step: event.step, value: timelineAccumulators.cumulativeCalls });
     analyticsTimeline.uniqueStates.push({ step: event.step, value: uniqueValue });
     analyticsTimeline.memoHits.push({ step: event.step, value: timelineAccumulators.cumulativeMemoHits });
     analyticsTimeline.coverage.push({ step: event.step, value: coverageValue });
@@ -150,7 +152,7 @@ export function runBottomUp({ s, p, stream = false, onEvent = null, onSnapshot =
       dependencies: dependencyMap,
       order: orderMap,
       metrics: {
-        calls: 1,
+        calls,
         steps: step,
         depth: Math.max(m, n),
         uniqueStates: stateCounts.size,
@@ -295,7 +297,7 @@ export function runBottomUp({ s, p, stream = false, onEvent = null, onSnapshot =
     dependencies: dependencyMap,
     order: orderMap,
     metrics: {
-      calls: 1,
+      calls,
       steps: step,
       depth: Math.max(m, n),
       uniqueStates,

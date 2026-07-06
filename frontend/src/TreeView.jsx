@@ -4,8 +4,8 @@ import ELK from 'elkjs/lib/elk.bundled.js';
 import 'reactflow/dist/style.css';
 
 function TreeNode({ node, activeKey, expandedNodes, onToggle, onSelectState, depth = 0 }) {
-  const isExpanded = expandedNodes.has(node.key);
-  const isActive = activeKey === node.key;
+  const isExpanded = expandedNodes.has(node.id);
+  const isActive = activeKey === node.stateKey;
 
   const handleSelect = () => {
     if (node.state && typeof node.state.i === 'number' && typeof node.state.j === 'number') {
@@ -16,10 +16,10 @@ function TreeNode({ node, activeKey, expandedNodes, onToggle, onSelectState, dep
   return (
     <li className={`tree-node ${isActive ? 'active' : ''}`} style={{ marginLeft: `${depth * 0.6}rem` }}>
       <div className="tree-node-label" onClick={handleSelect}>
-        <button type="button" className="tree-toggle" onClick={(event) => { event.stopPropagation(); onToggle(node.key); }}>
+        <button type="button" className="tree-toggle" onClick={(event) => { event.stopPropagation(); onToggle(node.id); }}>
           {node.children?.length ? (isExpanded ? '▾' : '▸') : '•'}
         </button>
-        <span className="event-badge">{node.key}</span>
+        <span className="event-badge">{node.stateKey}</span>
         <span>state ({node.state?.i}, {node.state?.j})</span>
         <span className="tree-result">&rarr; {String(node.result)}</span>
         {node.memoHit ? <span className="node-tag memo-hit">MEMO HIT</span> : null}
@@ -45,10 +45,18 @@ function TreeNode({ node, activeKey, expandedNodes, onToggle, onSelectState, dep
 }
 
 export default function TreeView({ events, callTree, activeStateKey, onSelectState }) {
-  const [expandedNodes, setExpandedNodes] = useState(() => new Set(['0,0']));
+  const [expandedNodes, setExpandedNodes] = useState(() => new Set());
   const [showGraph, setShowGraph] = useState(false);
   const [hoveredNode, setHoveredNode] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    setExpandedNodes((current) => {
+      const next = new Set(current);
+      (callTree ?? []).forEach((node) => next.add(node.id));
+      return next;
+    });
+  }, [callTree]);
 
   const calls = useMemo(() => events.filter((event) => event.type === 'CALL'), [events]);
 
@@ -70,12 +78,12 @@ export default function TreeView({ events, callTree, activeStateKey, onSelectSta
 
     const findPath = (nodes) => {
       for (const node of nodes) {
-        if (node.key === activeStateKey) {
-          path.add(node.key);
+        if (node.stateKey === activeStateKey) {
+          path.add(node.id);
           return true;
         }
         if (node.children?.length && findPath(node.children)) {
-          path.add(node.key);
+          path.add(node.id);
           return true;
         }
       }
@@ -96,10 +104,11 @@ export default function TreeView({ events, callTree, activeStateKey, onSelectSta
     const walk = (node, parentKey = null) => {
       const branchDecision = (node.children?.length ?? 0) > 1;
       nodes.push({
-        id: node.key,
+        id: node.id,
         data: {
-          label: `${node.key} → ${String(node.result)}${node.memoHit ? ' [memo]' : ''}${node.critical ? ' [critical]' : ''}`,
+          label: `${node.stateKey} → ${String(node.result)}${node.memoHit ? ' [memo]' : ''}${node.critical ? ' [critical]' : ''}`,
           state: node.state,
+          stateKey: node.stateKey,
           memoHit: node.memoHit,
           critical: node.critical,
           branchDecision,
@@ -110,10 +119,10 @@ export default function TreeView({ events, callTree, activeStateKey, onSelectSta
       });
 
       if (parentKey) {
-        edges.push({ id: `${parentKey}-${node.key}`, source: parentKey, target: node.key });
+        edges.push({ id: `${parentKey}-${node.id}`, source: parentKey, target: node.id });
       }
 
-      (node.children ?? []).forEach((child) => walk(child, node.key));
+      (node.children ?? []).forEach((child) => walk(child, node.id));
     };
 
     (callTree ?? []).forEach((node) => walk(node));
@@ -138,8 +147,8 @@ export default function TreeView({ events, callTree, activeStateKey, onSelectSta
 
     const findPath = (nodes, targetId, stack = []) => {
       for (const current of nodes) {
-        const nextStack = [...stack, current.key];
-        if (current.key === targetId) {
+        const nextStack = [...stack, current.stateKey];
+        if (current.id === targetId) {
           return nextStack;
         }
         const childPath = findPath(current.children ?? [], targetId, nextStack);
@@ -194,7 +203,7 @@ export default function TreeView({ events, callTree, activeStateKey, onSelectSta
       const nodeById = new Map(rawGraph.nodes.map((node) => [node.id, node]));
       const nodes = (layouted.children ?? []).map((child) => {
         const nodeMeta = nodeById.get(child.id);
-        const isActive = activeStateKey === child.id;
+        const isActive = activeStateKey === nodeMeta?.data?.stateKey;
         const isPath = activePath.has(child.id);
         const label = nodeMeta?.data?.label ?? child.id;
         const background = isPath

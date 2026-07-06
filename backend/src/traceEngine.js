@@ -261,6 +261,7 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
   let step = 0;
   let memoHitCount = 0;
   let maxDepthReached = 0;
+  let nodeIdCounter = 0;
   
   // Accumulators for analytics timeline (not subject to MAX_STREAM_EVENTS truncation)
   const timelineAccumulators = {
@@ -401,8 +402,18 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
   function isMatch(i, j) {
     calls += 1;
     ensureExecutionBudget({ s, p, algorithm, calls, step, depth: nodeStack.length + 1 });
-    const key = `${i},${j}`;
-    const node = { id: `${i},${j}`, state: { i, j }, children: [], result: null, key, memoHit: false, critical: false };
+    const stateKeyValue = `${i},${j}`;
+    const nodeId = `node-${++nodeIdCounter}`;
+    const node = {
+      id: nodeId,
+      state: { i, j },
+      stateKey: stateKeyValue,
+      children: [],
+      result: null,
+      key: nodeId,
+      memoHit: false,
+      critical: false,
+    };
 
     if (nodeStack.length > 0) {
       maxDepthReached = Math.max(maxDepthReached, nodeStack.length + 1);
@@ -420,18 +431,18 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
 
     nodeStack.push(node);
 
-    if (memo && memo.has(key)) {
+    if (memo && memo.has(stateKeyValue)) {
       memoHitCount += 1;
-      pushEvent('MEMO_HIT', { i, j }, 'memo hit', { variables: { key } });
+      pushEvent('MEMO_HIT', { i, j }, 'memo hit', { variables: { key: stateKeyValue } });
       node.memoHit = true;
-      node.result = memo.get(key);
+      node.result = memo.get(stateKeyValue);
       nodeStack.pop();
-      return memo.get(key);
+      return memo.get(stateKeyValue);
     }
 
-    pushEvent('CALL', { i, j }, 'call', { variables: { key } });
+    pushEvent('CALL', { i, j }, 'call', { variables: { key: stateKeyValue } });
     if (memo) {
-      resolvedStates.add(key);
+      resolvedStates.add(stateKeyValue);
     }
 
     if (j === p.length) {
@@ -439,7 +450,7 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
       pushEvent('RETURN', { i, j }, 'end of pattern', { variables: { result } });
       node.result = result;
       if (memo) {
-        memo.set(key, result);
+        memo.set(stateKeyValue, result);
         pushEvent('MEMO_STORE', { i, j }, 'memo store', { variables: { result } });
       }
       nodeStack.pop();
@@ -466,7 +477,7 @@ export function runAlgorithm({ s, p, algorithm = 'memo', stream = false, onEvent
     pushEvent('RETURN', { i, j }, 'return', { variables: { result } });
     node.result = result;
     if (memo) {
-      memo.set(key, result);
+      memo.set(stateKeyValue, result);
       pushEvent('MEMO_STORE', { i, j }, 'memo store', { variables: { result } });
     }
     nodeStack.pop();

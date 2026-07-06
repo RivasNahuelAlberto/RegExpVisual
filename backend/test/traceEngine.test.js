@@ -43,6 +43,24 @@ test('memoized runs expose reuse in the metrics payload', () => {
   assert.ok(memoized.metrics.reusePercentage >= 0, 'Expected memoized runs to report reuse percentage');
 });
 
+test('memoized traces keep a unique invocation id separate from the logical state key', () => {
+  const trace = runAlgorithm({ s: 'aa', p: 'a*', algorithm: 'memo' });
+  const nodes = [];
+
+  const walk = (list) => {
+    for (const node of list) {
+      nodes.push(node);
+      walk(node.children ?? []);
+    }
+  };
+
+  walk(trace.callTree);
+
+  assert.ok(nodes.length > 1, 'Expected the trace to contain multiple call-tree nodes');
+  assert.equal(new Set(nodes.map((node) => node.id)).size, nodes.length, 'Expected each invocation to have a unique id');
+  assert.ok(nodes.every((node) => typeof node.stateKey === 'string' && node.stateKey.length > 0), 'Expected each node to expose its logical state key');
+});
+
 test('streaming snapshots include incremental metrics and call tree state', () => {
   const snapshots = [];
   const trace = runAlgorithm({
