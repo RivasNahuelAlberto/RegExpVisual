@@ -43,7 +43,7 @@ export default function AppBootstrapLoader({ children }) {
         <div className="bootstrap-card">
           <div className="bootstrap-logo"></div>
           <div className="bootstrap-copy">
-            <h1>Alpha</h1>
+            <img className="header-logo" src="/images/alphaw.jpeg" alt="Alpha logo" />
             <p>Getting everything ready...</p>
           </div>
           <div className="bootstrap-spinner">
