@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Component, useEffect, useMemo, useRef, useState } from 'react';
 import ReactFlow, { Background, Controls, MiniMap } from 'reactflow';
 import ELK from 'elkjs/lib/elk.bundled.js';
 import 'reactflow/dist/style.css';
@@ -39,6 +39,36 @@ const wrapLabel = (value, maxChars = 24) => {
 
   return lines.length ? lines : [text];
 };
+
+class TreeViewErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('TreeView rendering failed', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="tree-view">
+          <div className="tree-view-error">
+            <h3>Graph rendering was interrupted</h3>
+            <p>The call tree for this input is too large to render interactively in the browser. Try a smaller input or switch to a memoized run.</p>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 function TreeNode({ node, activeKey, expandedNodes, onToggle, onSelectState, depth = 0 }) {
   const isExpanded = expandedNodes.has(node.id);
@@ -81,7 +111,7 @@ function TreeNode({ node, activeKey, expandedNodes, onToggle, onSelectState, dep
   );
 }
 
-export default function TreeView({ events, callTree, activeStateKey, onSelectState, graphTitle = 'call-graph' }) {
+function TreeViewContent({ events, callTree, activeStateKey, onSelectState, graphTitle = 'call-graph' }) {
   const [expandedNodes, setExpandedNodes] = useState(() => new Set());
   const [showGraph, setShowGraph] = useState(false);
   const [hoveredNode, setHoveredNode] = useState(null);
@@ -99,6 +129,14 @@ export default function TreeView({ events, callTree, activeStateKey, onSelectSta
   }, [callTree]);
 
   const calls = useMemo(() => events.filter((event) => event.type === 'CALL'), [events]);
+  const MAX_VISIBLE_NODES = 400;
+  const exceedsRenderBudget = (callTree?.length ?? 0) > MAX_VISIBLE_NODES;
+  const visibleCallTree = useMemo(() => {
+    if (!Array.isArray(callTree) || !callTree.length) {
+      return [];
+    }
+    return exceedsRenderBudget ? callTree.slice(0, MAX_VISIBLE_NODES) : callTree;
+  }, [callTree, exceedsRenderBudget]);
 
   const exportSize = useMemo(() => {
     if (!graphLayout.nodes.length) {
@@ -228,9 +266,9 @@ export default function TreeView({ events, callTree, activeStateKey, onSelectSta
       return false;
     };
 
-    findPath(callTree ?? []);
+    findPath(visibleCallTree);
     return path;
-  }, [callTree, activeStateKey]);
+  }, [visibleCallTree, activeStateKey]);
 
   const elk = useMemo(() => new ELK(), []);
 
@@ -262,9 +300,9 @@ export default function TreeView({ events, callTree, activeStateKey, onSelectSta
       (node.children ?? []).forEach((child) => walk(child, node.id));
     };
 
-    (callTree ?? []).forEach((node) => walk(node));
+    visibleCallTree.forEach((node) => walk(node));
     return { nodes, edges };
-  }, [callTree]);
+  }, [visibleCallTree]);
 
   const hoverInfo = useMemo(() => {
     if (!hoveredNode?.id) {
@@ -296,9 +334,9 @@ export default function TreeView({ events, callTree, activeStateKey, onSelectSta
       return null;
     };
 
-    const path = findPath(callTree ?? [], hoveredNode.id) ?? [];
+    const path = findPath(visibleCallTree, hoveredNode.id) ?? [];
     return { node, children, path };
-  }, [hoveredNode, rawGraph, callTree]);
+  }, [hoveredNode, rawGraph, visibleCallTree]);
 
   const getTooltipStyle = () => ({
     left: `${tooltipPos.x + 16}px`,
@@ -308,6 +346,17 @@ export default function TreeView({ events, callTree, activeStateKey, onSelectSta
   useEffect(() => {
     if (!rawGraph.nodes.length) {
       setGraphLayout({ nodes: [], edges: [] });
+      return;
+    }
+
+    if (rawGraph.nodes.length > MAX_VISIBLE_NODES || rawGraph.edges.length > MAX_VISIBLE_NODES * 2) {
+      const fallbackNodes = rawGraph.nodes.map((node, index) => ({
+        ...node,
+        position: { x: (index % 6) * 280, y: Math.floor(index / 6) * 180 },
+        sourcePosition: 'bottom',
+        targetPosition: 'top',
+      }));
+      setGraphLayout({ nodes: fallbackNodes, edges: rawGraph.edges });
       return;
     }
 
@@ -396,6 +445,11 @@ export default function TreeView({ events, callTree, activeStateKey, onSelectSta
 
   return (
     <div className="tree-view">
+      {exceedsRenderBudget ? (
+        <div className="tree-render-warning">
+          This tree is too large for full interactive rendering. Showing the first {MAX_VISIBLE_NODES} nodes to keep the page responsive.
+        </div>
+      ) : null}
       <div className="toolbar-row">
         <h3>Call tree</h3>
         <button type="button" className="tree-open-button" onClick={() => setShowGraph(true)}>
@@ -413,7 +467,7 @@ export default function TreeView({ events, callTree, activeStateKey, onSelectSta
       <p className="step-indicator">{calls.length} recursive calls</p>
       <div className="tree-list-shell">
         <ul className="tree-root">
-          {(callTree?.length ? callTree : []).map((node) => (
+          {(visibleCallTree.length ? visibleCallTree : []).map((node) => (
             <TreeNode
               key={node.id}
               node={node}
@@ -446,12 +500,17 @@ export default function TreeView({ events, callTree, activeStateKey, onSelectSta
                   </div>
                 </div>
               </div>
-              <button type="button" onClick={handleExportGraph} disabled={isExporting}>
+              <button type="button" onClick={handleExportGraph} disabled={isExporting || exceedsRenderBudget}>
                 {isExporting ? 'Exporting…' : 'Export PNG'}
               </button>
               <button type="button" onClick={() => setShowGraph(false)}>Close</button>
             </div>
             <div className="tree-graph-shell" ref={graphRef}>
+              {exceedsRenderBudget ? (
+                <div className="tree-render-warning tree-render-warning-modal">
+                  The graph preview is skipped for very large runs to avoid browser overload. Use a smaller input or a memoized run to inspect the tree visually.
+                </div>
+              ) : (
               <ReactFlow
                 nodes={graphLayout.nodes}
                 edges={graphLayout.edges}
@@ -471,6 +530,7 @@ export default function TreeView({ events, callTree, activeStateKey, onSelectSta
                 <Controls />
                 <MiniMap />
               </ReactFlow>
+              )}
               {hoverInfo ? (
                 <div className="hover-tooltip" style={getTooltipStyle()}>
                   <h4>Hovered node</h4>
@@ -488,5 +548,13 @@ export default function TreeView({ events, callTree, activeStateKey, onSelectSta
         </div>
       ) : null}
     </div>
+  );
+}
+
+export default function TreeView(props) {
+  return (
+    <TreeViewErrorBoundary>
+      <TreeViewContent {...props} />
+    </TreeViewErrorBoundary>
   );
 }
