@@ -63,22 +63,126 @@ export default function TreeView({ events, callTree, activeStateKey, onSelectSta
 
   const calls = useMemo(() => events.filter((event) => event.type === 'CALL'), [events]);
 
+  const exportSize = useMemo(() => {
+    if (!graphLayout.nodes.length) {
+      return { width: 1800, height: 1200 };
+    }
+
+    const padding = 220;
+    const maxX = Math.max(...graphLayout.nodes.map((node) => (node.position?.x ?? 0) + (node.width ?? 260)));
+    const maxY = Math.max(...graphLayout.nodes.map((node) => (node.position?.y ?? 0) + (node.height ?? 144)));
+
+    return {
+      width: Math.max(1800, Math.ceil(maxX + padding)),
+      height: Math.max(1200, Math.ceil(maxY + padding)),
+    };
+  }, [graphLayout.nodes]);
+
   const handleExportGraph = async () => {
-    if (!graphRef.current) {
+    if (!graphLayout.nodes.length) {
       return;
     }
 
     try {
       setIsExporting(true);
-      const dataUrl = await toPng(graphRef.current, {
+
+      const exportNode = document.createElement('div');
+      exportNode.className = 'tree-export-surface';
+      exportNode.style.position = 'fixed';
+      exportNode.style.left = '-9999px';
+      exportNode.style.top = '0';
+      exportNode.style.width = `${exportSize.width}px`;
+      exportNode.style.height = `${exportSize.height}px`;
+      exportNode.style.padding = '40px';
+      exportNode.style.background = '#ffffff';
+      exportNode.style.fontFamily = 'Inter, Arial, sans-serif';
+      exportNode.style.overflow = 'visible';
+      exportNode.style.boxSizing = 'border-box';
+
+      const title = document.createElement('div');
+      title.textContent = graphTitle.replace(/-/g, ' ').toUpperCase();
+      title.style.fontSize = '24px';
+      title.style.fontWeight = '700';
+      title.style.marginBottom = '24px';
+      title.style.color = '#0f172a';
+      exportNode.appendChild(title);
+
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('width', `${exportSize.width}`);
+      svg.setAttribute('height', `${exportSize.height - 100}`);
+      svg.setAttribute('viewBox', `0 0 ${exportSize.width} ${exportSize.height - 100}`);
+      svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+
+      const edgesLayer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      graphLayout.edges.forEach((edge) => {
+        const source = graphLayout.nodes.find((node) => node.id === edge.source);
+        const target = graphLayout.nodes.find((node) => node.id === edge.target);
+        if (!source || !target) {
+          return;
+        }
+
+        const sourceX = (source.position?.x ?? 0) + (source.width ?? 260) / 2;
+        const sourceY = (source.position?.y ?? 0) + (source.height ?? 144) / 2;
+        const targetX = (target.position?.x ?? 0) + (target.width ?? 260) / 2;
+        const targetY = (target.position?.y ?? 0) + (target.height ?? 144) / 2;
+
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', String(sourceX));
+        line.setAttribute('y1', String(sourceY));
+        line.setAttribute('x2', String(targetX));
+        line.setAttribute('y2', String(targetY));
+        line.setAttribute('stroke', edge.style?.stroke ?? '#94a3b8');
+        line.setAttribute('stroke-width', String(edge.style?.strokeWidth ?? 1));
+        line.setAttribute('stroke-linecap', 'round');
+        if (edge.style?.strokeDasharray) {
+          line.setAttribute('stroke-dasharray', edge.style.strokeDasharray);
+        }
+        edgesLayer.appendChild(line);
+      });
+      svg.appendChild(edgesLayer);
+
+      const nodesLayer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      graphLayout.nodes.forEach((node) => {
+        const nodeWidth = node.width ?? 260;
+        const nodeHeight = node.height ?? 144;
+        const x = node.position?.x ?? 0;
+        const y = node.position?.y ?? 0;
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x', String(x));
+        rect.setAttribute('y', String(y));
+        rect.setAttribute('width', String(nodeWidth));
+        rect.setAttribute('height', String(nodeHeight));
+        rect.setAttribute('rx', '12');
+        rect.setAttribute('fill', node.style?.background ?? '#0f172a');
+        rect.setAttribute('stroke', node.style?.borderColor ?? '#ffffff');
+        rect.setAttribute('stroke-width', '2');
+        nodesLayer.appendChild(rect);
+
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', String(x + 16));
+        text.setAttribute('y', String(y + 28));
+        text.setAttribute('fill', '#ffffff');
+        text.setAttribute('font-size', '13');
+        text.setAttribute('font-weight', '600');
+        text.textContent = node.data?.label ?? node.id;
+        nodesLayer.appendChild(text);
+      });
+      svg.appendChild(nodesLayer);
+      exportNode.appendChild(svg);
+
+      document.body.appendChild(exportNode);
+      await new Promise((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
+
+      const dataUrl = await toPng(exportNode, {
         cacheBust: true,
         backgroundColor: '#ffffff',
         pixelRatio: 2,
-        filter: (node) => {
-          if (node?.classList?.contains('hover-tooltip')) {
-            return false;
-          }
-          return true;
+        width: exportSize.width,
+        height: exportSize.height,
+        style: {
+          width: `${exportSize.width}px`,
+          height: `${exportSize.height}px`,
+          overflow: 'visible',
         },
       });
 
@@ -90,6 +194,7 @@ export default function TreeView({ events, callTree, activeStateKey, onSelectSta
       console.error('Failed to export graph image', error);
     } finally {
       setIsExporting(false);
+      document.querySelectorAll('.tree-export-surface').forEach((element) => element.remove());
     }
   };
 

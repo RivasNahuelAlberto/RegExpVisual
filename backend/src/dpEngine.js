@@ -293,7 +293,7 @@ export function runBottomUp({ s, p, stream = false, onEvent = null, onSnapshot =
     dependencies: dependencyMap,
     order: orderMap,
     metrics: {
-      calls,
+      calls: 1,
       steps: step,
       depth: Math.max(m, n),
       uniqueStates,
