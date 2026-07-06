@@ -51,6 +51,7 @@ export default function TreeView({ events, callTree, activeStateKey, onSelectSta
   const [hoveredNode, setHoveredNode] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [isExporting, setIsExporting] = useState(false);
+  const [graphLayout, setGraphLayout] = useState({ nodes: [], edges: [] });
   const graphRef = useRef(null);
 
   useEffect(() => {
@@ -233,7 +234,6 @@ export default function TreeView({ events, callTree, activeStateKey, onSelectSta
   }, [callTree, activeStateKey]);
 
   const elk = useMemo(() => new ELK(), []);
-  const [graphLayout, setGraphLayout] = useState({ nodes: [], edges: [] });
 
   const rawGraph = useMemo(() => {
     const nodes = [];
