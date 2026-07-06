@@ -1,8 +1,44 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import ReactFlow, { Background, Controls, MiniMap } from 'reactflow';
 import ELK from 'elkjs/lib/elk.bundled.js';
-import { toPng } from 'html-to-image';
 import 'reactflow/dist/style.css';
+
+const escapeXml = (value = '') => String(value)
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&apos;');
+
+const wrapLabel = (value, maxChars = 24) => {
+  const text = String(value ?? '');
+  if (!text) {
+    return [''];
+  }
+
+  const words = text.split(/(\s+)/).filter(Boolean);
+  const lines = [];
+  let current = '';
+
+  words.forEach((word) => {
+    const candidate = current ? `${current}${word}` : word;
+    if (candidate.length <= maxChars) {
+      current = candidate;
+      return;
+    }
+
+    if (current) {
+      lines.push(current.trim());
+    }
+    current = word;
+  });
+
+  if (current) {
+    lines.push(current.trim());
+  }
+
+  return lines.length ? lines : [text];
+};
 
 function TreeNode({ node, activeKey, expandedNodes, onToggle, onSelectState, depth = 0 }) {
   const isExpanded = expandedNodes.has(node.id);
@@ -87,34 +123,16 @@ export default function TreeView({ events, callTree, activeStateKey, onSelectSta
     try {
       setIsExporting(true);
 
-      const exportNode = document.createElement('div');
-      exportNode.className = 'tree-export-surface';
-      exportNode.style.position = 'fixed';
-      exportNode.style.left = '-9999px';
-      exportNode.style.top = '0';
-      exportNode.style.width = `${exportSize.width}px`;
-      exportNode.style.height = `${exportSize.height}px`;
-      exportNode.style.padding = '40px';
-      exportNode.style.background = '#ffffff';
-      exportNode.style.fontFamily = 'Inter, Arial, sans-serif';
-      exportNode.style.overflow = 'visible';
-      exportNode.style.boxSizing = 'border-box';
+      const width = exportSize.width;
+      const height = exportSize.height;
+      const title = graphTitle.replace(/-/g, ' ').toUpperCase();
+      const svgParts = [
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`,
+        `<rect x="0" y="0" width="${width}" height="${height}" fill="#ffffff" />`,
+        `<text x="40" y="58" fill="#0f172a" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">${escapeXml(title)}</text>`,
+        '<g stroke-linecap="round">',
+      ];
 
-      const title = document.createElement('div');
-      title.textContent = graphTitle.replace(/-/g, ' ').toUpperCase();
-      title.style.fontSize = '24px';
-      title.style.fontWeight = '700';
-      title.style.marginBottom = '24px';
-      title.style.color = '#0f172a';
-      exportNode.appendChild(title);
-
-      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      svg.setAttribute('width', `${exportSize.width}`);
-      svg.setAttribute('height', `${exportSize.height - 100}`);
-      svg.setAttribute('viewBox', `0 0 ${exportSize.width} ${exportSize.height - 100}`);
-      svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-
-      const edgesLayer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
       graphLayout.edges.forEach((edge) => {
         const source = graphLayout.nodes.find((node) => node.id === edge.source);
         const target = graphLayout.nodes.find((node) => node.id === edge.target);
@@ -127,75 +145,56 @@ export default function TreeView({ events, callTree, activeStateKey, onSelectSta
         const targetX = (target.position?.x ?? 0) + (target.width ?? 260) / 2;
         const targetY = (target.position?.y ?? 0) + (target.height ?? 144) / 2;
 
-        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        line.setAttribute('x1', String(sourceX));
-        line.setAttribute('y1', String(sourceY));
-        line.setAttribute('x2', String(targetX));
-        line.setAttribute('y2', String(targetY));
-        line.setAttribute('stroke', edge.style?.stroke ?? '#94a3b8');
-        line.setAttribute('stroke-width', String(edge.style?.strokeWidth ?? 1));
-        line.setAttribute('stroke-linecap', 'round');
-        if (edge.style?.strokeDasharray) {
-          line.setAttribute('stroke-dasharray', edge.style.strokeDasharray);
-        }
-        edgesLayer.appendChild(line);
+        svgParts.push(`<line x1="${sourceX}" y1="${sourceY}" x2="${targetX}" y2="${targetY}" stroke="${edge.style?.stroke ?? '#94a3b8'}" stroke-width="${edge.style?.strokeWidth ?? 1}"${edge.style?.strokeDasharray ? ` stroke-dasharray="${edge.style.strokeDasharray}"` : ''} />`);
       });
-      svg.appendChild(edgesLayer);
 
-      const nodesLayer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      svgParts.push('</g><g>');
+
       graphLayout.nodes.forEach((node) => {
         const nodeWidth = node.width ?? 260;
         const nodeHeight = node.height ?? 144;
         const x = node.position?.x ?? 0;
         const y = node.position?.y ?? 0;
-        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        rect.setAttribute('x', String(x));
-        rect.setAttribute('y', String(y));
-        rect.setAttribute('width', String(nodeWidth));
-        rect.setAttribute('height', String(nodeHeight));
-        rect.setAttribute('rx', '12');
-        rect.setAttribute('fill', node.style?.background ?? '#0f172a');
-        rect.setAttribute('stroke', node.style?.borderColor ?? '#ffffff');
-        rect.setAttribute('stroke-width', '2');
-        nodesLayer.appendChild(rect);
+        const label = node.data?.label ?? node.id;
+        const lines = wrapLabel(label, 24);
+        const textY = y + 32;
 
-        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        text.setAttribute('x', String(x + 16));
-        text.setAttribute('y', String(y + 28));
-        text.setAttribute('fill', '#ffffff');
-        text.setAttribute('font-size', '13');
-        text.setAttribute('font-weight', '600');
-        text.textContent = node.data?.label ?? node.id;
-        nodesLayer.appendChild(text);
-      });
-      svg.appendChild(nodesLayer);
-      exportNode.appendChild(svg);
-
-      document.body.appendChild(exportNode);
-      await new Promise((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
-
-      const dataUrl = await toPng(exportNode, {
-        cacheBust: true,
-        backgroundColor: '#ffffff',
-        pixelRatio: 2,
-        width: exportSize.width,
-        height: exportSize.height,
-        style: {
-          width: `${exportSize.width}px`,
-          height: `${exportSize.height}px`,
-          overflow: 'visible',
-        },
+        svgParts.push(`<rect x="${x}" y="${y}" width="${nodeWidth}" height="${nodeHeight}" rx="12" fill="${node.style?.background ?? '#0f172a'}" stroke="${node.style?.borderColor ?? '#ffffff'}" stroke-width="2" />`);
+        svgParts.push(`<text x="${x + 16}" y="${textY}" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="600">${lines.map((line, index) => `<tspan x="${x + 16}" dy="${index === 0 ? 0 : 16}">${escapeXml(line)}</tspan>`).join('')}</text>`);
       });
 
-      const link = document.createElement('a');
-      link.download = `${graphTitle}.png`;
-      link.href = dataUrl;
-      link.click();
+      svgParts.push('</g></svg>');
+
+      const svgMarkup = svgParts.join('');
+      const svgBlob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
+      const svgUrl = URL.createObjectURL(svgBlob);
+
+      await new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => {
+          const canvas = document.createElement('canvas');
+          const scale = 2;
+          canvas.width = width * scale;
+          canvas.height = height * scale;
+          const context = canvas.getContext('2d');
+          context.scale(scale, scale);
+          context.drawImage(image, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/png');
+          const link = document.createElement('a');
+          link.download = `${graphTitle}.png`;
+          link.href = dataUrl;
+          link.click();
+          resolve();
+        };
+        image.onerror = () => reject(new Error('Unable to render graph SVG'));
+        image.src = svgUrl;
+      });
+
+      URL.revokeObjectURL(svgUrl);
     } catch (error) {
       console.error('Failed to export graph image', error);
     } finally {
       setIsExporting(false);
-      document.querySelectorAll('.tree-export-surface').forEach((element) => element.remove());
     }
   };
 
