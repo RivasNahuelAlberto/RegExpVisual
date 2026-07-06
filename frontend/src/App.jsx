@@ -838,7 +838,13 @@ export default function App() {
                   {result.algorithm === 'bottomup' ? (
                     <DpTable dp={result.dp} dependencies={result.dependencies} order={result.order} selectedCell={selectedCell} onSelectState={handleSelectState} s={s} p={p} />
                   ) : (
-                    <TreeView events={timeline} callTree={result.callTree} activeStateKey={selectedCell} onSelectState={handleSelectState} />
+                    <TreeView
+                      events={timeline}
+                      callTree={result.callTree}
+                      activeStateKey={selectedCell}
+                      onSelectState={handleSelectState}
+                      graphTitle={result.algorithm === 'memo' ? 'memoized-backtracking-graph' : 'backtracking-graph'}
+                    />
                   )}
                 </div>
                 <div className="inspector-card">

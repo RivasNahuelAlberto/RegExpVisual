@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import ReactFlow, { Background, Controls, MiniMap } from 'reactflow';
 import ELK from 'elkjs/lib/elk.bundled.js';
+import { toPng } from 'html-to-image';
 import 'reactflow/dist/style.css';
 
 function TreeNode({ node, activeKey, expandedNodes, onToggle, onSelectState, depth = 0 }) {
@@ -44,11 +45,13 @@ function TreeNode({ node, activeKey, expandedNodes, onToggle, onSelectState, dep
   );
 }
 
-export default function TreeView({ events, callTree, activeStateKey, onSelectState }) {
+export default function TreeView({ events, callTree, activeStateKey, onSelectState, graphTitle = 'call-graph' }) {
   const [expandedNodes, setExpandedNodes] = useState(() => new Set());
   const [showGraph, setShowGraph] = useState(false);
   const [hoveredNode, setHoveredNode] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+  const [isExporting, setIsExporting] = useState(false);
+  const graphRef = useRef(null);
 
   useEffect(() => {
     setExpandedNodes((current) => {
@@ -59,6 +62,36 @@ export default function TreeView({ events, callTree, activeStateKey, onSelectSta
   }, [callTree]);
 
   const calls = useMemo(() => events.filter((event) => event.type === 'CALL'), [events]);
+
+  const handleExportGraph = async () => {
+    if (!graphRef.current) {
+      return;
+    }
+
+    try {
+      setIsExporting(true);
+      const dataUrl = await toPng(graphRef.current, {
+        cacheBust: true,
+        backgroundColor: '#ffffff',
+        pixelRatio: 2,
+        filter: (node) => {
+          if (node?.classList?.contains('hover-tooltip')) {
+            return false;
+          }
+          return true;
+        },
+      });
+
+      const link = document.createElement('a');
+      link.download = `${graphTitle}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (error) {
+      console.error('Failed to export graph image', error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const toggleNode = (key) => {
     setExpandedNodes((current) => {
@@ -309,9 +342,12 @@ export default function TreeView({ events, callTree, activeStateKey, onSelectSta
                   </div>
                 </div>
               </div>
+              <button type="button" onClick={handleExportGraph} disabled={isExporting}>
+                {isExporting ? 'Exporting…' : 'Export PNG'}
+              </button>
               <button type="button" onClick={() => setShowGraph(false)}>Close</button>
             </div>
-            <div className="tree-graph-shell">
+            <div className="tree-graph-shell" ref={graphRef}>
               <ReactFlow
                 nodes={graphLayout.nodes}
                 edges={graphLayout.edges}
