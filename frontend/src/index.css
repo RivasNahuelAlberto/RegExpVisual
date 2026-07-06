@@ -113,6 +113,17 @@ body {
   font-size: 2rem;
 }
 
+.bootstrap-logo-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.75rem;
+}
+
+.bootstrap-loader-logo {
+  margin: 0 auto;
+  max-height: 5rem;
+}
+
 .bootstrap-copy p {
   margin: 0;
   color: #cbd5e1;

@@ -43,7 +43,9 @@ export default function AppBootstrapLoader({ children }) {
         <div className="bootstrap-card">
           <div className="bootstrap-logo"></div>
           <div className="bootstrap-copy">
-            <img className="header-logo" src="/images/alphaw.jpeg" alt="Alpha logo" />
+            <div className="bootstrap-logo-wrap">
+              <img className="header-logo bootstrap-loader-logo" src="/images/alphaw.jpeg" alt="Alpha logo" />
+            </div>
             <p>Getting everything ready...</p>
           </div>
           <div className="bootstrap-spinner">
