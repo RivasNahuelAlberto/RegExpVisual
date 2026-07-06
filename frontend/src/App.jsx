@@ -722,7 +722,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <img className="header-logo" src="/images/alphaw.png" alt="Alpha logo" />
+        <img className="header-logo" src="/images/alphaw.jpeg" alt="Alpha logo" />
         <div className="header-branding">
           <span className="brand-name">Programación Avanzada 1C2026</span>
         </div>
